@@ -402,7 +402,24 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       const columnIndex = $(this).closest('th').index();
       const columnName = colunasDesejadas[columnIndex];
       const filteredData = dataTable.rows({search:'applied'}).data().toArray();
-      const uniqueValues = [...new Set(filteredData.map(row => row[columnIndex]))].sort();
+      
+      let uniqueValues = [...new Set(filteredData.map(row => row[columnIndex]))].filter(Boolean);
+      
+      // NOVO: Ordenação específica para a coluna "DATA"
+      if (columnName === "DATA"){
+          uniqueValues.sort((a,b)=>{ 
+              // Função auxiliar para converter "dd/mm/yyyy" em milissegundos (timestamp) para comparação
+              const toTime=v=>{ 
+                  const parts = v.split("/").map(Number); 
+                  // parts[1]-1 é porque o mês no JavaScript é 0-based
+                  if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime(); 
+                  return 0; // Retorna 0 para valores inválidos/vazios
+              }; 
+              return toTime(a)-toTime(b); 
+          });
+      } else { 
+          uniqueValues.sort(); // Mantém a ordenação alfabética para outras colunas
+      }
       
       const savedFilter = localStorage.getItem(`filtroColuna${columnIndex}`);
       const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
