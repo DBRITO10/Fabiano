@@ -434,14 +434,23 @@ function inicializarTabela() {
         const columnIndex = $(this).closest('th').index();
         const columnName = colunas[columnIndex];
         const filteredData = dataTable.rows({search:'applied'}).data().toArray();
-        let uniqueValues = [...new Set(filteredData.map(row => row[columnName]))].filter(Boolean);
+        // ALTERAÇÃO AQUI: Garante que os valores únicos são extraídos usando o nome da coluna
+        let uniqueValues = [...new Set(filteredData.map(row => row[columnName] || "" ))].filter(Boolean); // Adicionado || "" para evitar 'undefined' e filter(Boolean) para remover vazios
         
+        // NOVO: Ordenação específica para a coluna "DATA"
         if (columnName === "DATA"){
           uniqueValues.sort((a,b)=>{ 
-            const toTime=v=>{ const [d,m,y]=v.split("/").map(Number); return new Date(y,m-1,d).getTime(); }; 
+            // Função auxiliar para converter "dd/mm/yyyy" em milissegundos (timestamp) para comparação
+            const toTime=v=>{ 
+                // A data pode vir como "dd/mm/yyyy". No Papaparse, a coluna é referenciada pelo nome.
+                const parts = v.split("/").map(Number); 
+                // parts[1]-1 é porque o mês no JavaScript é 0-based
+                if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime(); 
+                return 0; // Retorna 0 para valores inválidos, que serão colocados no início
+            }; 
             return toTime(a)-toTime(b); 
           });
-        } else { uniqueValues.sort(); }
+        } else { uniqueValues.sort(); } // Mantém a ordenação alfabética para outras colunas
 
         const savedFilter = localStorage.getItem(`agendamentoFiltroColuna${columnIndex}`);
         const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
@@ -500,7 +509,9 @@ function inicializarTabela() {
         const coluna = $(this).data('col');
         const titulo = coluna === "CARGAS" ? "Detalhes da Carga" : "Senha de Agendamento";
         $('#modalCarga h2').text(titulo);
-        $('#conteudoCarga').text(conteudo);
+        // NOVO: Adiciona quebra de linha para a coluna CARGAS
+        const displayContent = coluna === "CARGAS" ? conteudo.replace(/,/g, ',<br>') : conteudo; 
+        $('#conteudoCarga').html(displayContent);
         $('#modalCarga').css('display','flex');
       });
       $('.close-modal').on('click', function(){ $('#modalCarga').hide(); });
