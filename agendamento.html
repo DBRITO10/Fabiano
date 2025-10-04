@@ -351,7 +351,7 @@ function inicializarTabela() {
         createdCell: function (td, cellData, rowData, row, col) {
           const cellValue = cellData.trim().toUpperCase();
           let color = '';
-          if (['ARMARIO', 'COMODA', 'COZINHA', 'MULTIUSO', 'PAINEL', 'ROUPEIRO'].includes(cellValue)) {
+          if (['ARMARIO', 'COMODA', 'COZINHA', 'MULTIUSO', 'PAINEL', 'ROUPEIRO', 'BERÇO'].includes(cellValue)) {
             color = '#FFFF00'; // Amarelo
           } else if (['CELULAR', 'NOTEBOOK', 'TABLET'].includes(cellValue)) {
             color = '#00BFFF'; // Azul
