@@ -307,6 +307,7 @@ const coresStatus = {
 
 let myChart;
 let dataTable;
+let coresData = []; // NOVO: Novo array para armazenar se a data deve ser vermelha
 
 function renderizarGrafico(data) {
     const statusCounts = {};
@@ -368,6 +369,21 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     data.forEach(row=>{ Object.keys(row).forEach(k=>{ if(k!==k.trim()){ row[k.trim()]=row[k]; delete row[k]; } }); });
     data.forEach(row=>{ colunasDesejadas.forEach(col=>{ if(row[col]) row[col]=row[col].trim(); }); });
 
+    // NOVO: Pré-processamento dos dados para a coluna "DATA"
+    const dataIndex = colunasDesejadas.indexOf("DATA");
+    data.forEach((row, rowIndex) => {
+        const dataOriginal = row["DATA"] || "";
+        // Verifica se a string começa e termina com *
+        const deveSerVermelho = dataOriginal.startsWith('*') && dataOriginal.endsWith('*'); 
+        if (deveSerVermelho) {
+            // Remove os asteriscos do valor da célula para exibição e filtragem
+            row["DATA"] = dataOriginal.substring(1, dataOriginal.length - 1); 
+        }
+        // Armazena a informação da cor para ser usada na renderização da célula
+        coresData[rowIndex] = deveSerVermelho ? 'red' : ''; 
+    });
+
+
     const headerRow = document.querySelector("#planilha thead tr.headers");
     const filterRow = document.querySelector("#planilha thead tr.filters");
     const tableBody = document.querySelector("#planilha tbody");
@@ -380,13 +396,18 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     
     document.querySelector("#planilha tfoot th").setAttribute("colspan", colunasDesejadas.length);
 
-    data.forEach(row => {
+    // ALTERADO: Adição da lógica de cor para a coluna "DATA"
+    data.forEach((row, rowIndex) => {
         let rowHtml = "<tr>";
         colunasDesejadas.forEach((col, index) => {
             let valor = row[col] || "";
             let cellHtml = `<td>${valor}</td>`;
             if (index === statusIndex) {
                 cellHtml = `<td class="status-cell" style="background-color: ${coresStatus[valor] || '#4682B4'};">${valor}</td>`;
+            } 
+            // NOVO: Aplica a cor vermelha se o pré-processamento indicou que a data tinha asterisco
+            else if (index === dataIndex && coresData[rowIndex] === 'red') {
+                 cellHtml = `<td style="color: red; font-weight: bold;">${valor}</td>`;
             }
             rowHtml += cellHtml;
         });
@@ -598,8 +619,7 @@ function exportExcel(table){
     data.forEach(row=>ws_data.push([...row]));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
-    XLSX.utils.book_append_sheet(wb,ws,"Cargas");
-    XLSX.writeFile(wb,"Cargas.xlsx");
+    XLSX.utils.book_append_sheet(wb,ws,"Cargas.xlsx");
 }
 </script>
 </body>
