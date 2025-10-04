@@ -406,9 +406,9 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
                 createdCell: function (td, cellData, rowData, row, col) {
                     const cellValue = cellData.trim().toUpperCase();
                     let color = '';
-                    if (['ARMARIO', 'COMODA', 'COZINHA', 'MULTIUSO', 'PAINEL', 'ROUPEIRO'].includes(cellValue)) {
+                    if (['ARMARIO', 'COMODA', 'COZINHA', 'BERÇO', 'MULTIUSO', 'PAINEL', 'ROUPEIRO'].includes(cellValue)) {
                         color = '#FFFF00';
-                    } else if (['CELULAR', 'NOTEBOOK', 'TABLET'].includes(cellValue)) {
+                    } else if (['CELULAR', 'NOTEBOOK', 'TABLET','RELÓGIO'].includes(cellValue)) {
                         color = '#00BFFF';
                     } else if (cellValue === 'MESA') {
                         color = '#00FF00';
