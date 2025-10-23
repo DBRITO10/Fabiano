@@ -311,7 +311,9 @@ const coresStatus = {
 
 let myChart;
 let dataTable;
-let coresData = []; // NOVO: Novo array para armazenar se a data deve ser vermelha
+let coresData = []; // array para armazenar se a data deve ser vermelha
+// NOVO: Array para armazenar se a central deve ser vermelha
+let coresCentral = []; 
 
 function renderizarGrafico(data) {
     const statusCounts = {};
@@ -373,7 +375,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     data.forEach(row=>{ Object.keys(row).forEach(k=>{ if(k!==k.trim()){ row[k.trim()]=row[k]; delete row[k]; } }); });
     data.forEach(row=>{ colunasDesejadas.forEach(col=>{ if(row[col]) row[col]=row[col].trim(); }); });
 
-    // NOVO: Pré-processamento dos dados para a coluna "DATA"
+    // Pré-processamento dos dados para a coluna "DATA"
     const dataIndex = colunasDesejadas.indexOf("DATA");
     data.forEach((row, rowIndex) => {
         const dataOriginal = row["DATA"] || "";
@@ -385,6 +387,20 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         }
         // Armazena a informação da cor para ser usada na renderização da célula
         coresData[rowIndex] = deveSerVermelho ? 'red' : ''; 
+    });
+    
+    // NOVO: Pré-processamento dos dados para a coluna "CENTRAL"
+    const centralIndex = colunasDesejadas.indexOf("CENTRAL");
+    data.forEach((row, rowIndex) => {
+        const centralOriginal = row["CENTRAL"] || "";
+        // Verifica se a string começa e termina com *
+        const deveSerVermelhoCentral = centralOriginal.startsWith('*') && centralOriginal.endsWith('*'); 
+        if (deveSerVermelhoCentral) {
+            // Remove os asteriscos do valor da célula para exibição e filtragem
+            row["CENTRAL"] = centralOriginal.substring(1, centralOriginal.length - 1); 
+        }
+        // Armazena a informação da cor para ser usada na renderização da célula
+        coresCentral[rowIndex] = deveSerVermelhoCentral ? 'red' : ''; 
     });
 
 
@@ -400,7 +416,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     
     document.querySelector("#planilha tfoot th").setAttribute("colspan", colunasDesejadas.length);
 
-    // ALTERADO: Adição da lógica de cor para a coluna "DATA"
+    // ALTERADO: Adição da lógica de cor para a coluna "DATA" e "CENTRAL"
     data.forEach((row, rowIndex) => {
         let rowHtml = "<tr>";
         colunasDesejadas.forEach((col, index) => {
@@ -409,8 +425,12 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
             if (index === statusIndex) {
                 cellHtml = `<td class="status-cell" style="background-color: ${coresStatus[valor] || '#4682B4'};">${valor}</td>`;
             } 
-            // NOVO: Aplica a cor vermelha se o pré-processamento indicou que a data tinha asterisco
+            // Aplica a cor vermelha se o pré-processamento indicou que a data tinha asterisco
             else if (index === dataIndex && coresData[rowIndex] === 'red') {
+                 cellHtml = `<td style="color: red; font-weight: bold;">${valor}</td>`;
+            }
+            // NOVO: Aplica a cor vermelha se o pré-processamento indicou que a central tinha asterisco
+            else if (index === centralIndex && coresCentral[rowIndex] === 'red') {
                  cellHtml = `<td style="color: red; font-weight: bold;">${valor}</td>`;
             }
             rowHtml += cellHtml;
