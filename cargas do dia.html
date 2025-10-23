@@ -299,7 +299,8 @@ const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/export?format=
 const colunasDesejadas = ["ORDEM DE AGENDA","DATA","CENTRAL","CARGAS","STATUS","FORNECEDOR","TIPO DE PRODUTO"];
 const coresStatus = {
     "CARGA RECEBIDA": '#4CAF50',
-    "NO PATIO - FICOU P/AMANHÃ": '#c67330',
+    // Cor alterada de '#c67330' para '#9B591B' para melhor visibilidade do texto branco.
+    "NO PATIO - FICOU P/AMANHÃ": '#9B591B', 
     "CANCELADA": '#7a002b',    
     "SOB AJUSTE": '#f17a0a',
     "SOB ENCAIXE": '#e55e76',    
@@ -644,6 +645,7 @@ function exportExcel(table){
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb,ws,"Cargas.xlsx");
+    XLSX.writeFile(wb, "Cargas.xlsx"); // Adição da chamada para salvar o arquivo XLSX
 }
 </script>
 </body>
