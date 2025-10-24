@@ -625,13 +625,12 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
-// MODIFICAÇÃO: Adicionada lógica para colorir a coluna STATUS no PDF
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
     const headers = colunasDesejadas;
     const data = table.rows({search:"applied"}).data().toArray();
-    const centralIndex = colunasDesejadas.indexOf("CENTRAL"); // Índice da coluna CENTRAL
+    const centralIndex = colunasDesejadas.indexOf("CENTRAL"); 
     const statusIndex = colunasDesejadas.indexOf("STATUS");
     
     // 1. Adicionar o Título do Relatório
@@ -640,16 +639,12 @@ function exportPDF(table){
     
     // Encontrar o total de cargas filtradas
     const totalCargas = data.length;
+    let currentY = 25;
     doc.setFontSize(12);
-    doc.text(`TOTAL DE CARGAS: ${totalCargas}`, 10, 25);
+    doc.text(`TOTAL DE CARGAS: ${totalCargas}`, 10, currentY);
+    currentY += 5; // Adiciona um pequeno espaço
     
     // Obter os dados originais (antes do filtro de busca no DataTable) para a cor do CENTRAL
-    // Isso é necessário porque `data` (data filtered) é um array de arrays, sem o índice de linha original
-    // A solução mais robusta é aplicar a lógica de cor diretamente no `didParseCell` verificando a linha correspondente no array coresCentral.
-    
-    const allData = $("#planilha").DataTable().rows().data().toArray();
-    
-    // Filtrar os índices das linhas visíveis na tabela (após o filtro de busca aplicado)
     const visibleRowIndexes = table.rows({search: 'applied'}).indexes().toArray();
 
     // Helper para converter Hex para RGB array para jsPDF
@@ -667,19 +662,68 @@ function exportPDF(table){
         return [r, g, b];
     }
     
-    // 2. Tabela de dados
+    // 2. CÁLCULO E TABELA DE STATUS DE RESUMO (O NOVO REGISTRO MAGNÍFICO)
+    const statusCounts = {};
+    data.forEach(row => {
+        const status = row[statusIndex];
+        if (status) {
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        }
+    });
+    
+    // Preparar dados para a tabela de resumo
+    const summaryBody = Object.keys(statusCounts).map(status => {
+        return [status, statusCounts[status]];
+    });
+
+    if (summaryBody.length > 0) {
+        doc.autoTable({
+            startY: currentY + 5, 
+            head:[['Status', 'Quantidade']], 
+            body: summaryBody,
+            margin: { left: 10, right: doc.internal.pageSize.getWidth() - 80 }, // Tabela menor e alinhada à esquerda
+            styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0], fontStyle: 'normal', halign: 'center' },
+            headStyles: { 
+                fillColor: hexToRgb('#4682B4'), // Cor do cabeçalho
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { halign: 'left', fontStyle: 'bold', textColor: [255, 255, 255] }, // Coluna Status: Texto branco e negrito
+                1: { halign: 'center', fontStyle: 'bold', textColor: [255, 255, 255] } // Coluna Quantidade: Texto branco e negrito
+            },
+            didParseCell: function(cellData) {
+                // Aplica a cor de fundo nas células de resumo
+                if (cellData.section === 'body') {
+                    const statusValue = cellData.row.raw[0]; // Pega o status do primeiro elemento da linha
+                    const color = coresStatus[statusValue] || '#808080';
+                    cellData.cell.styles.fillColor = hexToRgb(color);
+                }
+            },
+            didDrawPage: function(data) {
+                // O jsPDF-AutoTable retorna o final da tabela no data.cursor.y
+                currentY = data.cursor.y;
+            }
+        });
+    } else {
+        currentY += 10;
+    }
+
+    doc.setFontSize(12);
+    doc.text(`Tabela de Cargas (${totalCargas} registros):`, 10, currentY + 5);
+    
+    // 3. Tabela de dados principal
     doc.autoTable({
-        startY: 30, // Começa abaixo do título e do total
+        startY: currentY + 10, // Começa abaixo da tabela de resumo
         head:[headers], 
         body:data, 
-        styles:{fontSize:8, cellPadding:2, halign: 'center'}, // Centraliza o texto
-        headStyles: {halign: 'center'}, // Centraliza o cabeçalho
+        styles:{fontSize:8, cellPadding:2, halign: 'center'}, 
+        headStyles: {halign: 'center'}, 
         didParseCell: function(cellData) {
-            // cellData.row.index é o índice da linha na tabela visível (filtrada)
-            // Usamos o array visibleRowIndexes para mapear para o índice da linha no array original (que corresponde a coresCentral)
             const originalRowIndex = visibleRowIndexes[cellData.row.index];
             
-            // Aplica a cor do status na célula correspondente
+            // Aplica a cor do status (fundo)
             if (cellData.column.index === statusIndex) {
                 const statusValue = cellData.cell.text.join('').trim();
                 const color = coresStatus[statusValue] || '#4682B4'; 
@@ -689,7 +733,7 @@ function exportPDF(table){
                 cellData.cell.styles.fontStyle = 'bold';
             } 
             
-            // Aplica a cor vermelha para a coluna CENTRAL, se a condição for verdadeira
+            // Aplica a cor vermelha para a coluna CENTRAL
             if (cellData.column.index === centralIndex) {
                 if (coresCentral[originalRowIndex] === 'red') {
                     cellData.cell.styles.textColor = [255, 0, 0]; // Vermelho
