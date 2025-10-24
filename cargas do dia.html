@@ -721,27 +721,30 @@ function exportPDF(table){
         styles:{fontSize:8, cellPadding:2, halign: 'center'}, 
         headStyles: {
             halign: 'center',
-            textColor: [255, 255, 255], // Adicionado para garantir texto BRANCO no cabeçalho
+            textColor: [255, 255, 255], // GARANTIA DE TEXTO BRANCO PARA TODOS OS CABEÇALHOS
             fillColor: hexToRgb('#4682B4')
         }, 
         didParseCell: function(cellData) {
-            const originalRowIndex = visibleRowIndexes[cellData.row.index];
-            
-            // Aplica a cor do status (fundo)
-            if (cellData.column.index === statusIndex) {
-                const statusValue = cellData.cell.text.join('').trim();
-                const color = coresStatus[statusValue] || '#4682B4'; 
+            // VERIFICAÇÃO ADICIONADA: Aplica estilos de célula SOMENTE ao corpo da tabela (section === 'body')
+            if (cellData.section === 'body') {
+                const originalRowIndex = visibleRowIndexes[cellData.row.index];
                 
-                cellData.cell.styles.fillColor = hexToRgb(color);
-                cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
-                cellData.cell.styles.fontStyle = 'bold';
-            } 
-            
-            // Aplica a cor vermelha para a coluna CENTRAL
-            if (cellData.column.index === centralIndex) {
-                if (coresCentral[originalRowIndex] === 'red') {
-                    cellData.cell.styles.textColor = [255, 0, 0]; // Vermelho
+                // Aplica a cor do status (fundo)
+                if (cellData.column.index === statusIndex) {
+                    const statusValue = cellData.cell.text.join('').trim();
+                    const color = coresStatus[statusValue] || '#4682B4'; 
+                    
+                    cellData.cell.styles.fillColor = hexToRgb(color);
+                    cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
                     cellData.cell.styles.fontStyle = 'bold';
+                } 
+                
+                // Aplica a cor vermelha para a coluna CENTRAL
+                if (cellData.column.index === centralIndex) {
+                    if (coresCentral[originalRowIndex] === 'red') {
+                        cellData.cell.styles.textColor = [255, 0, 0]; // Vermelho
+                        cellData.cell.styles.fontStyle = 'bold';
+                    }
                 }
             }
         }
