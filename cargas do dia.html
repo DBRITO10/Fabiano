@@ -626,7 +626,6 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
-// FUNÇÃO EXPORTPDF ATUALIZADA
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
@@ -653,38 +652,69 @@ function exportPDF(table){
     
     let finalY = 10;
     
-    // NOVIDADE: Adicionar o gráfico (Chart) como imagem no PDF
-    const canvas = document.getElementById('statusChart');
-    if (canvas && myChart) {
-        const imgData = canvas.toDataURL('image/png');
-        // Define o tamanho da imagem no PDF.
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const imgWidth = 120; 
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        const xPos = 14; 
-        
-        doc.addImage(imgData, 'PNG', xPos, 10, imgWidth, imgHeight); 
-        finalY = 10 + imgHeight + 10; // Posição Y para iniciar a tabela
-    } 
+    // 1. Lógica para o Resumo de Status Colorido (Substitui o Gráfico)
+    const statusCounts = {};
+    data.forEach(row => {
+        const status = row[statusIndex];
+        if (status) {
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        }
+    });
 
+    doc.setFontSize(10);
+    doc.setFont(doc.getFont().fontName, 'bold');
+    
+    let currentX = 14;
+    let currentY = 15;
+    const initialText = "Resumo de Status: ";
+
+    // Escreve o texto inicial em preto (opcional)
+    doc.setTextColor(0, 0, 0); 
+    doc.text(initialText, currentX, currentY);
+    currentX += doc.getStringUnitWidth(initialText) * 10; 
+
+    let firstItem = true;
+    Object.keys(statusCounts).forEach(status => {
+        const count = statusCounts[status];
+        const text = `${status} (${count})`;
+        const color = coresStatus[status] || '#808080';
+        
+        // Adiciona separador se não for o primeiro item na linha
+        if (!firstItem) {
+            doc.setTextColor(0, 0, 0); // Separador em preto
+            doc.setFont(doc.getFont().fontName, 'normal'); // Separador normal
+            doc.text(" | ", currentX, currentY);
+            currentX += doc.getStringUnitWidth(" | ") * 10;
+        }
+
+        // Escreve o status e a contagem na cor correta
+        const rgbColor = hexToRgb(color);
+        doc.setTextColor(rgbColor[0], rgbColor[1], rgbColor[2]);
+        doc.setFont(doc.getFont().fontName, 'bold');
+        doc.text(text, currentX, currentY);
+        currentX += doc.getStringUnitWidth(text) * 10;
+        firstItem = false;
+    });
+
+    finalY = currentY + 8; // Posição Y para iniciar a tabela
+    
     // Índices originais das linhas filtradas (necessário para checar coresCentral)
-    // O dataTable.rows().indexes() retorna os índices da matriz 'fullDataSet' para as linhas visíveis
     const originalIndices = table.rows({search:"applied"}).indexes().toArray();
 
     doc.autoTable({
         head:[headers], 
         body:data, 
-        startY: finalY, // Inicia a tabela abaixo do gráfico
+        startY: finalY, // Inicia a tabela abaixo do resumo de status
         styles:{fontSize:8, cellPadding:2, overflow:'linebreak'},
-        // NOVO: Define a cor do cabeçalho da tabela (Header)
+        // 2. Cor do Cabeçalho da Tabela
         headStyles: {
             fillColor: hexToRgb('#4682B4'), // Cor azul do site
-            textColor: [255, 255, 255], // Branco
+            textColor: [255, 255, 255], // Branco para todos os títulos
             fontStyle: 'bold'
         },
         didParseCell: function(data) {
             
-            // Aplica a cor do status (mantém a lógica da versão anterior)
+            // Aplica a cor de fundo e texto branco/bold do status (STATUS)
             if (data.column.index === statusIndex) {
                 const statusValue = data.cell.text.join('').trim();
                 const color = coresStatus[statusValue] || '#4682B4'; 
@@ -694,7 +724,7 @@ function exportPDF(table){
                 data.cell.styles.fontStyle = 'bold';
             }
             
-            // NOVO: Aplica a cor vermelha na coluna CENTRAL
+            // 3. Aplica a cor vermelha APENAS ao texto dos dados na coluna CENTRAL
             if (data.column.index === centralIndex) {
                 const originalRowIndex = originalIndices[data.row.index];
                 if (coresCentral[originalRowIndex] === 'red') { 
@@ -703,7 +733,7 @@ function exportPDF(table){
                 }
             }
         },
-        // NOVO: Adiciona o Total de Cargas no Rodapé
+        // 4. Adiciona o Total de Cargas no Rodapé
         didDrawPage: function (hookData) {
             const totalCargas = table.rows({search:'applied'}).data().length;
             const footerText = `Total de Cargas: ${totalCargas}`;
