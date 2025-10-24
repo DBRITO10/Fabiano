@@ -299,7 +299,6 @@ const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/export?format=
 const colunasDesejadas = ["ORDEM DE AGENDA","DATA","CENTRAL","CARGAS","STATUS","FORNECEDOR","TIPO DE PRODUTO"];
 const coresStatus = {
     "CARGA RECEBIDA": '#4CAF50',
-    // Cor escura para melhor visibilidade do texto branco.
     "NO PATIO - FICOU P/AMANHÃ": '#9B591B', 
     "CANCELADA": '#7a002b',    
     "SOB AJUSTE": '#f17a0a',
@@ -312,6 +311,8 @@ const coresStatus = {
 
 let myChart;
 let dataTable;
+// Variáveis Globais para armazenamento de dados e cores
+let fullDataSet = []; 
 let coresData = []; 
 let coresCentral = []; 
 
@@ -329,19 +330,16 @@ function renderizarGrafico(data) {
     const labels = Object.keys(statusCounts);
     const chartData = Object.values(statusCounts);
     const backgroundColors = labels.map(label => coresStatus[label] || '#808080');
+    const countedLabels = labels.map(label => `${label} (${statusCounts[label]})`);
 
     if (myChart) {
         myChart.destroy();
     }
-    
-    // MODIFICAÇÃO: Adiciona a contagem de cargas aos rótulos da legenda
-    const countedLabels = labels.map(label => `${label} (${statusCounts[label]})`);
 
     const ctx = document.getElementById('statusChart').getContext('2d');
     myChart = new Chart(ctx, {
         type: 'pie',
         data: {
-            // Usa os rótulos com contagem na legenda
             labels: countedLabels, 
             datasets: [{
                 data: chartData,
@@ -359,7 +357,6 @@ function renderizarGrafico(data) {
                 tooltip: {
                     callbacks: {
                         label: function(tooltipItem) {
-                            // O rótulo já contém a contagem (devido a countedLabels), mas mantemos a percentagem
                             const total = tooltipItem.dataset.data.reduce((sum, current) => sum + current, 0);
                             const value = tooltipItem.raw;
                             const percentage = (value / total * 100).toFixed(1);
@@ -373,7 +370,10 @@ function renderizarGrafico(data) {
 }
 
 Papa.parse(csvUrl, { download: true, header: true, complete: function (results) {
-    const data = results.data;
+    // MODIFICAÇÃO: Armazena os dados processados em uma variável global
+    fullDataSet = results.data;
+    const data = fullDataSet; // Usar alias local para simplificar o código já existente
+    
     if(!data.length || Object.keys(data[0]).length===0){ alert("Falha ao carregar dados."); return; }
 
     results.meta.fields = results.meta.fields.map(f=>f.trim());
@@ -607,7 +607,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     // Novo evento de clique para a coluna "CARGAS"
     $('#planilha tbody').on('click', 'td:nth-child(' + (colunasDesejadas.indexOf("CARGAS") + 1) + ')', function() {
         const fullContent = dataTable.cell(this).data();
-        $('#cargaConteudo').html(fullContent.replace(/,/g, ',<br>')); // Alteração para adicionar quebra de linha
+        $('#cargaConteudo').html(fullContent.replace(/,/g, ',<br>')); 
         $('#cargaModal').show();
     });
 
@@ -625,13 +625,14 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
-// MODIFICAÇÃO: Adicionada lógica para colorir a coluna STATUS no PDF
+// MODIFICAÇÃO: exportPDF atualizada para incluir resumo no cabeçalho/rodapé e cor na coluna CENTRAL
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
     const headers = colunasDesejadas;
     const data = table.rows({search:"applied"}).data().toArray();
     const statusIndex = colunasDesejadas.indexOf("STATUS");
+    const centralIndex = colunasDesejadas.indexOf("CENTRAL");
 
     // Helper para converter Hex para RGB array para jsPDF
     function hexToRgb(hex) {
@@ -647,12 +648,36 @@ function exportPDF(table){
         }
         return [r, g, b];
     }
+    
+    // 1. Calcular resumo de Status para o Cabeçalho
+    const statusCounts = {};
+    data.forEach(row => {
+        const status = row[statusIndex];
+        if (status) {
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        }
+    });
+    
+    let statusSummary = "Status: ";
+    Object.keys(statusCounts).forEach(status => {
+        statusSummary += `${status} (${statusCounts[status]}), `;
+    });
+    statusSummary = statusSummary.slice(0, -2); // Remove a vírgula e espaço finais
+
+    // Adiciona a informação de Status no Cabeçalho
+    doc.setFontSize(10);
+    doc.text(statusSummary, 14, 15);
+
+    // Índices originais das linhas filtradas (necessário para checar coresCentral)
+    const originalIndices = table.rows({search:"applied"}).indexes().toArray();
 
     doc.autoTable({
         head:[headers], 
         body:data, 
-        styles:{fontSize:8, cellPadding:2},
+        startY: 20, // Inicia a tabela abaixo do resumo de status
+        styles:{fontSize:8, cellPadding:2, overflow:'linebreak'},
         didParseCell: function(data) {
+            
             // Aplica a cor do status na célula correspondente
             if (data.column.index === statusIndex) {
                 const statusValue = data.cell.text.join('').trim();
@@ -662,6 +687,24 @@ function exportPDF(table){
                 data.cell.styles.textColor = [255, 255, 255]; // Texto branco
                 data.cell.styles.fontStyle = 'bold';
             }
+            
+            // Aplica a cor vermelha na coluna CENTRAL
+            if (data.column.index === centralIndex) {
+                const originalRowIndex = originalIndices[data.row.index];
+                if (coresCentral[originalRowIndex] === 'red') {
+                    data.cell.styles.textColor = [255, 0, 0]; // Vermelho
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
+        },
+        // 2. Adiciona o Total de Cargas no Rodapé
+        didDrawPage: function (hookData) {
+            const totalCargas = table.rows({search:'applied'}).data().length;
+            const footerText = `Total de Cargas: ${totalCargas}`;
+            
+            doc.setFontSize(8);
+            // Posição no canto inferior esquerdo
+            doc.text(footerText, hookData.settings.margin.left, doc.internal.pageSize.height - 10);
         }
     });
     doc.save("Cargas.pdf");
@@ -675,7 +718,7 @@ function exportExcel(table){
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb,ws,"Cargas.xlsx");
-    XLSX.writeFile(wb, "Cargas.xlsx"); // Função para salvar o arquivo XLSX
+    XLSX.writeFile(wb, "Cargas.xlsx"); 
 }
 </script>
 </body>
