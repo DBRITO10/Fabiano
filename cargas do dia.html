@@ -719,7 +719,11 @@ function exportPDF(table){
         head:[headers], 
         body:data, 
         styles:{fontSize:8, cellPadding:2, halign: 'center'}, 
-        headStyles: {halign: 'center'}, 
+        headStyles: {
+            halign: 'center',
+            textColor: [255, 255, 255], // Adicionado para garantir texto BRANCO no cabeçalho
+            fillColor: hexToRgb('#4682B4')
+        }, 
         didParseCell: function(cellData) {
             const originalRowIndex = visibleRowIndexes[cellData.row.index];
             
