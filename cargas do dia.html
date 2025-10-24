@@ -631,7 +631,26 @@ function exportPDF(table){
     const doc = new jsPDF({orientation:"landscape"});
     const headers = colunasDesejadas;
     const data = table.rows({search:"applied"}).data().toArray();
+    const centralIndex = colunasDesejadas.indexOf("CENTRAL"); // Índice da coluna CENTRAL
     const statusIndex = colunasDesejadas.indexOf("STATUS");
+    
+    // 1. Adicionar o Título do Relatório
+    doc.setFontSize(16);
+    doc.text("Relatório de Cargas do Dia", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+    
+    // Encontrar o total de cargas filtradas
+    const totalCargas = data.length;
+    doc.setFontSize(12);
+    doc.text(`TOTAL DE CARGAS: ${totalCargas}`, 10, 25);
+    
+    // Obter os dados originais (antes do filtro de busca no DataTable) para a cor do CENTRAL
+    // Isso é necessário porque `data` (data filtered) é um array de arrays, sem o índice de linha original
+    // A solução mais robusta é aplicar a lógica de cor diretamente no `didParseCell` verificando a linha correspondente no array coresCentral.
+    
+    const allData = $("#planilha").DataTable().rows().data().toArray();
+    
+    // Filtrar os índices das linhas visíveis na tabela (após o filtro de busca aplicado)
+    const visibleRowIndexes = table.rows({search: 'applied'}).indexes().toArray();
 
     // Helper para converter Hex para RGB array para jsPDF
     function hexToRgb(hex) {
@@ -647,20 +666,35 @@ function exportPDF(table){
         }
         return [r, g, b];
     }
-
+    
+    // 2. Tabela de dados
     doc.autoTable({
+        startY: 30, // Começa abaixo do título e do total
         head:[headers], 
         body:data, 
-        styles:{fontSize:8, cellPadding:2},
-        didParseCell: function(data) {
+        styles:{fontSize:8, cellPadding:2, halign: 'center'}, // Centraliza o texto
+        headStyles: {halign: 'center'}, // Centraliza o cabeçalho
+        didParseCell: function(cellData) {
+            // cellData.row.index é o índice da linha na tabela visível (filtrada)
+            // Usamos o array visibleRowIndexes para mapear para o índice da linha no array original (que corresponde a coresCentral)
+            const originalRowIndex = visibleRowIndexes[cellData.row.index];
+            
             // Aplica a cor do status na célula correspondente
-            if (data.column.index === statusIndex) {
-                const statusValue = data.cell.text.join('').trim();
+            if (cellData.column.index === statusIndex) {
+                const statusValue = cellData.cell.text.join('').trim();
                 const color = coresStatus[statusValue] || '#4682B4'; 
                 
-                data.cell.styles.fillColor = hexToRgb(color);
-                data.cell.styles.textColor = [255, 255, 255]; // Texto branco
-                data.cell.styles.fontStyle = 'bold';
+                cellData.cell.styles.fillColor = hexToRgb(color);
+                cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
+                cellData.cell.styles.fontStyle = 'bold';
+            } 
+            
+            // Aplica a cor vermelha para a coluna CENTRAL, se a condição for verdadeira
+            if (cellData.column.index === centralIndex) {
+                if (coresCentral[originalRowIndex] === 'red') {
+                    cellData.cell.styles.textColor = [255, 0, 0]; // Vermelho
+                    cellData.cell.styles.fontStyle = 'bold';
+                }
             }
         }
     });
