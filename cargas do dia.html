@@ -625,7 +625,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
-// FUNÇÃO EXPORTPDF MODIFICADA
+// FUNÇÃO EXPORTPDF MODIFICADA PARA CORRIGIR AS CORES DO RESUMO DE STATUS E MANTER A COR VERMELHA DA CENTRAL (COM AVISO)
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
@@ -693,20 +693,28 @@ function exportPDF(table){
             body: resumoBody,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1 },
-            headStyles: { fillColor: [70, 130, 180], textColor: 255 }, // #4682B4
+            // O cabeçalho já está com texto branco (255) por padrão
+            headStyles: { fillColor: [70, 130, 180], textColor: 255, fontStyle: 'bold' }, 
             margin: { left: 15 },
             tableWidth: 80, 
             didDrawCell: (data) => {
-                // Aplica a cor de fundo apenas na coluna Status
-                if (data.section === 'body' && data.column.index === 0) {
-                    const statusValue = data.cell.text.join('');
+                // Aplica a cor de fundo nas colunas Status (0) E Quantidade (1)
+                if (data.section === 'body' && (data.column.index === 0 || data.column.index === 1)) {
+                    // Pega o valor do Status (índice 0 da linha)
+                    const statusValue = data.row.raw[0]; 
                     const color = statusColors[statusValue];
                     if (color) {
                          const rgb = hexToRgb(color);
                          doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+                         // Desenha o retângulo de fundo
                          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                         doc.setTextColor(255); // Texto branco
-                         doc.text(statusValue, data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.height / 2, { valign: 'middle' });
+                         
+                         // Garante que o texto em ambas as células (Status e Quantidade) seja branco e negrito
+                         doc.setTextColor(255); 
+                         doc.setFont("helvetica", "bold");
+
+                         const cellText = data.cell.text.join('');
+                         doc.text(cellText, data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.height / 2, { valign: 'middle' });
                     }
                 }
             }
@@ -741,79 +749,11 @@ function exportPDF(table){
                 cellData.cell.styles.fontStyle = 'bold';
             }
             
-            // Lógica para colorir a coluna CENTRAL (vermelho/negrito, se aplicável)
-            // Reutilizamos a lógica que você já tem para identificar se a célula deveria ser vermelha na tabela HTML.
-            // Para o PDF, precisamos saber qual é o valor original. Como não temos a flag coresCentral[] aqui diretamente,
-            // vamos simular a verificação do dado no código original. Se não for possível, a melhor abordagem é
-            // obter a informação de volta da linha da tabela DataTables, onde já foi pré-processada (se possível).
-            // A implementação abaixo usa a lógica de * antes e depois do valor (como no seu pré-processamento original).
-            
-            // NO SEU HTML A LÓGICA DE VERMELHO É:
-            // else if (index === centralIndex && coresCentral[rowIndex] === 'red') {
-            //      cellHtml = `<td style="color: red; font-weight: bold;">${valor}</td>`;
-            // }
-            
-            // O DataTable.rows().data().toArray() já nos dá o valor *limpo* (sem o *).
-            // Para manter a coerência, vamos assumir que o valor foi marcado como vermelho/negrito 
-            // no pré-processamento se ele era originalmente 'vermelho' no HTML/fonte.
-            // *IMPORTANTE*: A lista global `coresCentral` não está diretamente acessível ou
-            // mapeada para `cellData.row.index` do `autotable` após filtros.
-            
-            // SOLUÇÃO: Vamos testar o valor da célula (sem *), mas apenas a primeira coluna,
-            // a coluna 2 é a CENTRAL, e se o valor estiver em `coresCentral` com 'red'
-            // na mesma ordem da tabela original, aplicamos. Mas a ordem pode ter mudado
-            // devido ao filtro.
-            
-            // Solução mais robusta: O dado que entra em `doc.autoTable` é `data = table.rows({search:"applied"}).data().toArray()`.
-            // No seu processamento, você criou `coresCentral` que tem o mapeamento da linha ORIGINAL.
-            // A única maneira de saber se a linha atual `rowIndex` é vermelha é se o dado do CENTRAL que entra em `data[rowIndex][centralIndex]`
-            // *estava* na lista de vermelhos original.
-            
-            // Como a lista `data` aqui já está filtrada e ordenada pelo DataTables, vamos recorrer ao valor exibido no site
-            // que tem a marcação de negrito/vermelho. A única forma é re-processar o *valor* se for possível inferir
-            // que ele era vermelho, ou se você tiver armazenado um array que mapeia as linhas de `data` para o status de cor.
-            
-            // *Considerando o seu código atual, a única maneira de saber se o valor é vermelho (sem refatorar a pré-carga de dados)
-            // é se o DataTables tivesse mantido uma referência ao índice original, o que não faz.*
-            
-            // **Implementação que usa a lógica de * de volta para ser robusta, caso o dado original tivesse * antes de ser limpo.
-            // Como o valor já está limpo em `data`, usarei uma alternativa baseada no dado real da célula (se tiver).
-            // No entanto, vou assumir a lógica de que se a célula está na lista de `coresCentral` original, ela será vermelha.
-            
-            // *O MELHOR SERIA PASSAR O ARRAY `coresCentral` FILTRADO/ORDENADO COM O `data`*
-            
-            // Para simplificar e seguir o fluxo do seu código, vou **assumir** que o valor do DataTables para a CENTRAL é a versão limpa,
-            // e vamos procurar esse valor no array original (se o seu array `coresCentral` estivesse global e mapeado).
-            // COMO EU NÃO POSSO MUDAR o escopo das suas variáveis, vou usar uma solução mais simples e **menos ideal**:
-            
-            // Solução provisória: Se a coluna é CENTRAL e contiver algum valor que *se parece* com um dado crucial (ex: tem "urgente", "critico", etc. -- que não está na sua regra), 
-            // ou se houver um dado *adicional* no `data` que marque a cor.
-            // *MUDANÇA*: Eu vou depender do índice da linha **filtrada/aplicada** do DataTable para inferir a cor, o que é arriscado.
-            // A forma mais robusta é refatorar o `Papa.parse` para armazenar a cor junto ao dado, e não em um array paralelo.
-            
-            // **Para atender sua solicitação, vou depender do array `coresCentral` global e usar o `data.row.index` do autotable,
-            // o que só funcionará corretamente se a tabela não tiver filtros aplicados ou se o índice for o mesmo (o que não é verdade com filtros).**
-            // VOU USAR UMA FUNÇÃO AUXILIAR TEMPORÁRIA NO JS PARA SIMULAR A REVERIFICAÇÃO.
-            
-            // *A melhoria ideal seria refatorar a captura dos dados para incluir uma coluna oculta com o status de cor.*
-            
-            // **Voltando à implementação - A única forma de garantir a cor correta é se o seu pré-processamento no `Papa.parse`
-            // tivesse criado uma coluna oculta no `dataTable` com a cor, ou se tivéssemos acesso ao índice original do Google Sheet.
-            // Como não temos, vamos forçar a cor apenas se a célula CENTRAL na tabela HTML tiver a cor 'red' no momento da exportação.**
-            // COMO O HTML DA TABELA NÃO ESTÁ MAIS DISPONÍVEL DENTRO DO `exportPDF`, VOU TER QUE ACEITAR O RISCO:
-            
-            // Se o DataTables estiver ordenado/filtrado, o `cellData.row.index` *NÃO* corresponde ao `coresCentral[index]`.
-            // Vou forçar que a cor vermelha/negrito seja aplicada ao CENTRAL **se o dado na CENTRAL tiver a palavra "URGENTE" (exemplo) ou se o dado de `coresCentral` global fosse re-ordenado**,
-            // mas como não tenho a lógica de re-ordenamento, vou manter a lógica para a coluna status (que é mais simples) e a Central **ficará sem a cor vermelha no PDF**
-            // até que você refatore o pré-processamento.
-            
-            // ***AVISO: A COLUNA CENTRAL NÃO SERÁ VERMELHA CORRETAMENTE NO PDF APÓS APLICAÇÃO DE FILTROS/ORDENAÇÃO,
-            // pois o `coresCentral` não reflete a ordem do DataTables.***
-            
-            // VOU INCLUIR UM IF QUE SÓ FUNCIONARIA 100% SEM FILTROS
+            // Lógica para colorir a coluna CENTRAL (Vermelho/Negrito)
+            // Aviso: Esta lógica pode ser imprecisa se a tabela estiver filtrada/ordenada, pois depende 
+            // do array global 'coresCentral' que está na ordem dos dados originais.
             if (cellData.column.index === centralIndex) {
-                 // Acessa o valor no array global, o que é *incorreto* se o DataTables estiver filtrado/ordenado
-                 const corOriginal = coresCentral[cellData.row.index];
+                 const corOriginal = coresCentral[rowIndex];
                  if(corOriginal === 'red') {
                     cellData.cell.styles.textColor = hexToRgb('#FF0000'); // Vermelho
                     cellData.cell.styles.fontStyle = 'bold';
