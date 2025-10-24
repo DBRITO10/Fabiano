@@ -330,6 +330,7 @@ function renderizarGrafico(data) {
     const labels = Object.keys(statusCounts);
     const chartData = Object.values(statusCounts);
     const backgroundColors = labels.map(label => coresStatus[label] || '#808080');
+    // Adiciona contagem aos rótulos para o título do gráfico
     const countedLabels = labels.map(label => `${label} (${statusCounts[label]})`);
 
     if (myChart) {
@@ -625,12 +626,13 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
-// MODIFICAÇÃO: exportPDF atualizada para incluir resumo no cabeçalho/rodapé e cor na coluna CENTRAL
+// FUNÇÃO EXPORTPDF ATUALIZADA
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
     const headers = colunasDesejadas;
-    const data = table.rows({search:"applied"}).data().toArray();
+    // Captura apenas os dados exibidos (filtrados/buscados)
+    const data = table.rows({search:"applied"}).data().toArray(); 
     const statusIndex = colunasDesejadas.indexOf("STATUS");
     const centralIndex = colunasDesejadas.indexOf("CENTRAL");
 
@@ -649,61 +651,64 @@ function exportPDF(table){
         return [r, g, b];
     }
     
-    // 1. Calcular resumo de Status para o Cabeçalho
-    const statusCounts = {};
-    data.forEach(row => {
-        const status = row[statusIndex];
-        if (status) {
-            statusCounts[status] = (statusCounts[status] || 0) + 1;
-        }
-    });
+    let finalY = 10;
     
-    let statusSummary = "Status: ";
-    Object.keys(statusCounts).forEach(status => {
-        statusSummary += `${status} (${statusCounts[status]}), `;
-    });
-    statusSummary = statusSummary.slice(0, -2); // Remove a vírgula e espaço finais
-
-    // Adiciona a informação de Status no Cabeçalho
-    doc.setFontSize(10);
-    doc.text(statusSummary, 14, 15);
+    // NOVIDADE: Adicionar o gráfico (Chart) como imagem no PDF
+    const canvas = document.getElementById('statusChart');
+    if (canvas && myChart) {
+        const imgData = canvas.toDataURL('image/png');
+        // Define o tamanho da imagem no PDF.
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const imgWidth = 120; 
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const xPos = 14; 
+        
+        doc.addImage(imgData, 'PNG', xPos, 10, imgWidth, imgHeight); 
+        finalY = 10 + imgHeight + 10; // Posição Y para iniciar a tabela
+    } 
 
     // Índices originais das linhas filtradas (necessário para checar coresCentral)
+    // O dataTable.rows().indexes() retorna os índices da matriz 'fullDataSet' para as linhas visíveis
     const originalIndices = table.rows({search:"applied"}).indexes().toArray();
 
     doc.autoTable({
         head:[headers], 
         body:data, 
-        startY: 20, // Inicia a tabela abaixo do resumo de status
+        startY: finalY, // Inicia a tabela abaixo do gráfico
         styles:{fontSize:8, cellPadding:2, overflow:'linebreak'},
+        // NOVO: Define a cor do cabeçalho da tabela (Header)
+        headStyles: {
+            fillColor: hexToRgb('#4682B4'), // Cor azul do site
+            textColor: [255, 255, 255], // Branco
+            fontStyle: 'bold'
+        },
         didParseCell: function(data) {
             
-            // Aplica a cor do status na célula correspondente
+            // Aplica a cor do status (mantém a lógica da versão anterior)
             if (data.column.index === statusIndex) {
                 const statusValue = data.cell.text.join('').trim();
                 const color = coresStatus[statusValue] || '#4682B4'; 
                 
                 data.cell.styles.fillColor = hexToRgb(color);
-                data.cell.styles.textColor = [255, 255, 255]; // Texto branco
+                data.cell.styles.textColor = [255, 255, 255]; 
                 data.cell.styles.fontStyle = 'bold';
             }
             
-            // Aplica a cor vermelha na coluna CENTRAL
+            // NOVO: Aplica a cor vermelha na coluna CENTRAL
             if (data.column.index === centralIndex) {
                 const originalRowIndex = originalIndices[data.row.index];
-                if (coresCentral[originalRowIndex] === 'red') {
+                if (coresCentral[originalRowIndex] === 'red') { 
                     data.cell.styles.textColor = [255, 0, 0]; // Vermelho
                     data.cell.styles.fontStyle = 'bold';
                 }
             }
         },
-        // 2. Adiciona o Total de Cargas no Rodapé
+        // NOVO: Adiciona o Total de Cargas no Rodapé
         didDrawPage: function (hookData) {
             const totalCargas = table.rows({search:'applied'}).data().length;
             const footerText = `Total de Cargas: ${totalCargas}`;
             
             doc.setFontSize(8);
-            // Posição no canto inferior esquerdo
             doc.text(footerText, hookData.settings.margin.left, doc.internal.pageSize.height - 10);
         }
     });
