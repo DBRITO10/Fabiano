@@ -299,7 +299,7 @@ const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/export?format=
 const colunasDesejadas = ["ORDEM DE AGENDA","DATA","CENTRAL","CARGAS","STATUS","FORNECEDOR","TIPO DE PRODUTO"];
 const coresStatus = {
     "CARGA RECEBIDA": '#4CAF50',
-    // Cor alterada de '#c67330' para '#9B591B' para melhor visibilidade do texto branco.
+    // Cor escura para melhor visibilidade do texto branco.
     "NO PATIO - FICOU P/AMANHÃ": '#9B591B', 
     "CANCELADA": '#7a002b',    
     "SOB AJUSTE": '#f17a0a',
@@ -312,8 +312,7 @@ const coresStatus = {
 
 let myChart;
 let dataTable;
-let coresData = []; // array para armazenar se a data deve ser vermelha
-// NOVO: Array para armazenar se a central deve ser vermelha
+let coresData = []; 
 let coresCentral = []; 
 
 function renderizarGrafico(data) {
@@ -334,12 +333,16 @@ function renderizarGrafico(data) {
     if (myChart) {
         myChart.destroy();
     }
+    
+    // MODIFICAÇÃO: Adiciona a contagem de cargas aos rótulos da legenda
+    const countedLabels = labels.map(label => `${label} (${statusCounts[label]})`);
 
     const ctx = document.getElementById('statusChart').getContext('2d');
     myChart = new Chart(ctx, {
         type: 'pie',
         data: {
-            labels: labels,
+            // Usa os rótulos com contagem na legenda
+            labels: countedLabels, 
             datasets: [{
                 data: chartData,
                 backgroundColor: backgroundColors,
@@ -350,12 +353,13 @@ function renderizarGrafico(data) {
             responsive: true,
             plugins: {
                 legend: {
-                    position: 'right', // Altera a posição da legenda
-                    align: 'center', // Centraliza a legenda
+                    position: 'right', 
+                    align: 'center', 
                 },
                 tooltip: {
                     callbacks: {
                         label: function(tooltipItem) {
+                            // O rótulo já contém a contagem (devido a countedLabels), mas mantemos a percentagem
                             const total = tooltipItem.dataset.data.reduce((sum, current) => sum + current, 0);
                             const value = tooltipItem.raw;
                             const percentage = (value / total * 100).toFixed(1);
@@ -380,27 +384,21 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     const dataIndex = colunasDesejadas.indexOf("DATA");
     data.forEach((row, rowIndex) => {
         const dataOriginal = row["DATA"] || "";
-        // Verifica se a string começa e termina com *
         const deveSerVermelho = dataOriginal.startsWith('*') && dataOriginal.endsWith('*'); 
         if (deveSerVermelho) {
-            // Remove os asteriscos do valor da célula para exibição e filtragem
             row["DATA"] = dataOriginal.substring(1, dataOriginal.length - 1); 
         }
-        // Armazena a informação da cor para ser usada na renderização da célula
         coresData[rowIndex] = deveSerVermelho ? 'red' : ''; 
     });
     
-    // NOVO: Pré-processamento dos dados para a coluna "CENTRAL"
+    // Pré-processamento dos dados para a coluna "CENTRAL"
     const centralIndex = colunasDesejadas.indexOf("CENTRAL");
     data.forEach((row, rowIndex) => {
         const centralOriginal = row["CENTRAL"] || "";
-        // Verifica se a string começa e termina com *
         const deveSerVermelhoCentral = centralOriginal.startsWith('*') && centralOriginal.endsWith('*'); 
         if (deveSerVermelhoCentral) {
-            // Remove os asteriscos do valor da célula para exibição e filtragem
             row["CENTRAL"] = centralOriginal.substring(1, centralOriginal.length - 1); 
         }
-        // Armazena a informação da cor para ser usada na renderização da célula
         coresCentral[rowIndex] = deveSerVermelhoCentral ? 'red' : ''; 
     });
 
@@ -417,7 +415,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     
     document.querySelector("#planilha tfoot th").setAttribute("colspan", colunasDesejadas.length);
 
-    // ALTERADO: Adição da lógica de cor para a coluna "DATA" e "CENTRAL"
+    // Renderização da tabela com estilos de cor
     data.forEach((row, rowIndex) => {
         let rowHtml = "<tr>";
         colunasDesejadas.forEach((col, index) => {
@@ -426,11 +424,9 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
             if (index === statusIndex) {
                 cellHtml = `<td class="status-cell" style="background-color: ${coresStatus[valor] || '#4682B4'};">${valor}</td>`;
             } 
-            // Aplica a cor vermelha se o pré-processamento indicou que a data tinha asterisco
             else if (index === dataIndex && coresData[rowIndex] === 'red') {
                  cellHtml = `<td style="color: red; font-weight: bold;">${valor}</td>`;
             }
-            // NOVO: Aplica a cor vermelha se o pré-processamento indicou que a central tinha asterisco
             else if (index === centralIndex && coresCentral[rowIndex] === 'red') {
                  cellHtml = `<td style="color: red; font-weight: bold;">${valor}</td>`;
             }
@@ -629,14 +625,48 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
+// MODIFICAÇÃO: Adicionada lógica para colorir a coluna STATUS no PDF
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
     const headers = colunasDesejadas;
     const data = table.rows({search:"applied"}).data().toArray();
-    doc.autoTable({head:[headers], body:data, styles:{fontSize:8, cellPadding:2}});
+    const statusIndex = colunasDesejadas.indexOf("STATUS");
+
+    // Helper para converter Hex para RGB array para jsPDF
+    function hexToRgb(hex) {
+        let r = 0, g = 0, b = 0;
+        if (hex.length === 4) {
+            r = parseInt(hex[1] + hex[1], 16);
+            g = parseInt(hex[2] + hex[2], 16);
+            b = parseInt(hex[3] + hex[3], 16);
+        } else if (hex.length === 7) {
+            r = parseInt(hex[1] + hex[2], 16);
+            g = parseInt(hex[3] + hex[4], 16);
+            b = parseInt(hex[5] + hex[6], 16);
+        }
+        return [r, g, b];
+    }
+
+    doc.autoTable({
+        head:[headers], 
+        body:data, 
+        styles:{fontSize:8, cellPadding:2},
+        didParseCell: function(data) {
+            // Aplica a cor do status na célula correspondente
+            if (data.column.index === statusIndex) {
+                const statusValue = data.cell.text.join('').trim();
+                const color = coresStatus[statusValue] || '#4682B4'; 
+                
+                data.cell.styles.fillColor = hexToRgb(color);
+                data.cell.styles.textColor = [255, 255, 255]; // Texto branco
+                data.cell.styles.fontStyle = 'bold';
+            }
+        }
+    });
     doc.save("Cargas.pdf");
 }
+
 function exportExcel(table){
     const headers = colunasDesejadas;
     const data = table.rows({search:"applied"}).data().toArray();
@@ -645,7 +675,7 @@ function exportExcel(table){
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb,ws,"Cargas.xlsx");
-    XLSX.writeFile(wb, "Cargas.xlsx"); // Adição da chamada para salvar o arquivo XLSX
+    XLSX.writeFile(wb, "Cargas.xlsx"); // Função para salvar o arquivo XLSX
 }
 </script>
 </body>
