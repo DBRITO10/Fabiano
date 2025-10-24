@@ -334,7 +334,7 @@ function renderizarGrafico(data) {
         myChart.destroy();
     }
     
-    // MODIFICAÇÃO: Adiciona a contagem de cargas aos rótulos da legenda
+    // Adiciona a contagem de cargas aos rótulos da legenda
     const countedLabels = labels.map(label => `${label} (${statusCounts[label]})`);
 
     const ctx = document.getElementById('statusChart').getContext('2d');
@@ -353,7 +353,7 @@ function renderizarGrafico(data) {
             responsive: true,
             plugins: {
                 legend: {
-                    position: 'right', 
+                    position: 'bottom', // ALTERADO: Colocado em 'bottom' para garantir que os rótulos longos fiquem visíveis.
                     align: 'center', 
                 },
                 tooltip: {
@@ -625,14 +625,13 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 }});
 
 // Export PDF/Excel
-// FUNÇÃO EXPORTPDF MODIFICADA PARA CORRIGIR AS CORES DO RESUMO DE STATUS E MANTER A COR VERMELHA DA CENTRAL (COM AVISO)
+// MODIFICAÇÃO: Adicionada lógica para colorir a coluna STATUS no PDF
 function exportPDF(table){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({orientation:"landscape"});
     const headers = colunasDesejadas;
     const data = table.rows({search:"applied"}).data().toArray();
     const statusIndex = colunasDesejadas.indexOf("STATUS");
-    const centralIndex = colunasDesejadas.indexOf("CENTRAL");
 
     // Helper para converter Hex para RGB array para jsPDF
     function hexToRgb(hex) {
@@ -648,116 +647,20 @@ function exportPDF(table){
         }
         return [r, g, b];
     }
-    
-    // 1. Coleta e processa os dados de STATUS para o resumo
-    const statusCounts = {};
-    data.forEach(row => {
-        const status = row[statusIndex];
-        if (status) {
-            statusCounts[status] = (statusCounts[status] || 0) + 1;
-        }
-    });
 
-    const totalCargas = data.length;
-    let yOffset = 15;
-    
-    // ** Cabeçalho e Resumo de Cargas **
-    doc.setFontSize(16);
-    doc.text("Relatório de Cargas do Dia", doc.internal.pageSize.getWidth() / 2, yOffset, { align: "center" });
-    yOffset += 10;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL DE CARGAS: ${totalCargas}`, 15, yOffset);
-    yOffset += 5;
-
-    // Constrói a tabela do resumo de status
-    const resumoHeaders = ["Status", "Quantidade"];
-    const resumoBody = [];
-    const statusColors = {};
-    let countBody = 0;
-
-    Object.keys(statusCounts).forEach(status => {
-        const count = statusCounts[status];
-        if (count > 0) {
-            resumoBody.push([status, count.toString()]);
-            statusColors[status] = coresStatus[status] || '#808080';
-            countBody++;
-        }
-    });
-
-    if (countBody > 0) {
-        doc.autoTable({
-            startY: yOffset,
-            head: [resumoHeaders],
-            body: resumoBody,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2, lineWidth: 0.1 },
-            // O cabeçalho já está com texto branco (255) por padrão
-            headStyles: { fillColor: [70, 130, 180], textColor: 255, fontStyle: 'bold' }, 
-            margin: { left: 15 },
-            tableWidth: 80, 
-            didDrawCell: (data) => {
-                // Aplica a cor de fundo nas colunas Status (0) E Quantidade (1)
-                if (data.section === 'body' && (data.column.index === 0 || data.column.index === 1)) {
-                    // Pega o valor do Status (índice 0 da linha)
-                    const statusValue = data.row.raw[0]; 
-                    const color = statusColors[statusValue];
-                    if (color) {
-                         const rgb = hexToRgb(color);
-                         doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-                         // Desenha o retângulo de fundo
-                         doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                         
-                         // Garante que o texto em ambas as células (Status e Quantidade) seja branco e negrito
-                         doc.setTextColor(255); 
-                         doc.setFont("helvetica", "bold");
-
-                         const cellText = data.cell.text.join('');
-                         doc.text(cellText, data.cell.x + data.cell.padding('left'), data.cell.y + data.cell.height / 2, { valign: 'middle' });
-                    }
-                }
-            }
-        });
-        yOffset = doc.autoTable.previous.finalY + 10;
-    } else {
-        yOffset += 5; // Adiciona um espaço caso não haja resumo
-    }
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Tabela de Cargas (${data.length} registros):`, 15, yOffset);
-    yOffset += 5;
-    
-    // ** Tabela Principal **
     doc.autoTable({
-        startY: yOffset,
         head:[headers], 
         body:data, 
-        theme: 'grid',
         styles:{fontSize:8, cellPadding:2},
-        headStyles: { fillColor: [70, 130, 180], textColor: 255 }, // #4682B4
-        didParseCell: function(cellData) {
-            const cellValue = cellData.cell.text.join('').trim();
-            const rowIndex = cellData.row.index;
-            
-            // Lógica para colorir a coluna STATUS
-            if (cellData.column.index === statusIndex) {
-                const color = coresStatus[cellValue] || '#4682B4'; 
-                cellData.cell.styles.fillColor = hexToRgb(color);
-                cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
-                cellData.cell.styles.fontStyle = 'bold';
-            }
-            
-            // Lógica para colorir a coluna CENTRAL (Vermelho/Negrito)
-            // Aviso: Esta lógica pode ser imprecisa se a tabela estiver filtrada/ordenada, pois depende 
-            // do array global 'coresCentral' que está na ordem dos dados originais.
-            if (cellData.column.index === centralIndex) {
-                 const corOriginal = coresCentral[rowIndex];
-                 if(corOriginal === 'red') {
-                    cellData.cell.styles.textColor = hexToRgb('#FF0000'); // Vermelho
-                    cellData.cell.styles.fontStyle = 'bold';
-                 }
+        didParseCell: function(data) {
+            // Aplica a cor do status na célula correspondente
+            if (data.column.index === statusIndex) {
+                const statusValue = data.cell.text.join('').trim();
+                const color = coresStatus[statusValue] || '#4682B4'; 
+                
+                data.cell.styles.fillColor = hexToRgb(color);
+                data.cell.styles.textColor = [255, 255, 255]; // Texto branco
+                data.cell.styles.fontStyle = 'bold';
             }
         }
     });
