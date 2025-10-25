@@ -719,6 +719,7 @@ function exportPDF(table){
         head:[headers], 
         body:data, 
         styles:{fontSize:8, cellPadding:2, halign: 'center'}, 
+        alternateRowStyles: { fillColor: [240, 248, 255] }, // Adicionado: Linhas alternadas sombreadas (AliceBlue)
         headStyles: {
             halign: 'center',
             textColor: [255, 255, 255], // GARANTIA DE TEXTO BRANCO PARA TODOS OS CABEÇALHOS
