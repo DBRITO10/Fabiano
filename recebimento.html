@@ -270,7 +270,7 @@
 const sheetID = "1LaYf3GKID_HdueUpZax7J_aco2-a1UVFBz1pZ4CkUGk";
 const gid = "0";
 const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/export?format=csv&gid=${gid}`;
-const colunasDesejadas = ["SENHA","DATA","CENTRAL","CARGA/TRANSPORTE","NOTAS","STATUS DA CARGA","FORNECEDOR","TIPO DE PRODUTO"];
+const colunasDesejadas = ["SENHA","DATA","CENTRAL","CARGAS", "PEDIDO", "NOTAS","STATUS DA CARGA","FORNECEDOR","TIPO DE PRODUTO"];
 let dataTable;
 
 const coresProduto = {
@@ -293,15 +293,15 @@ const coresProduto = {
 };
 
 const coresStatus = {
-    'OK NO AJUSTE': '#00FF00',
-    'SOBRE AJUSTE': '#00BFFF',
+    'OK NO AJUSTE': '#4CAF50',
+    'SOBRE AJUSTE': '#8B27F5',
     'SEM NOTA': '#FF0000',
     'REAGENDADA': '#800080',
-    'CANCELADA': '#FFFF00',
+    'CANCELADA': '#000099',
     'OC PENDENTE': '#808080',
     'SEM TRIANGULAÇÃO': '#FFA500',
     'VENCIMENTO ERRADO': '#FFB6C1',
-    'FALTA CTe': '#FFC0CB',
+    'FALTA CTe': '#03A9F4',
     'NOTA ERRADA': '#A0522D',
     'CTe DIVERGENTE': '#FFD700'
 };
@@ -511,7 +511,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
   atualizarBotaoFiltro();
 }});
 
-// Popup para NOTAS e CARGA/TRANSPORTE
+// Popup para NOTAS e CARGAS e PEDIDOS
 $(document).on("click",".popup-cell",function(){
   const text = $(this).data("text");
   const col = $(this).data("col");
