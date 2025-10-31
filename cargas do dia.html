@@ -473,7 +473,8 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
             if (savedFilter) {
                 const savedValues = JSON.parse(savedFilter);
                 if (savedValues.length > 0) {
-                    const searchString = savedValues.map(v => $.fn.dataTable.util.escapeRegex(v)).join('|');
+                    // CORREÇÃO APLICADA: Adiciona ^ e $ para forçar a correspondência exata.
+                    const searchString = savedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
                     column.search(searchString, true, false);
                 }
             }
@@ -589,7 +590,8 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         
         localStorage.setItem(`filtroColuna${columnIndex}`, JSON.stringify(selectedValues));
         
-        const searchString = selectedValues.map(v => $.fn.dataTable.util.escapeRegex(v)).join('|');
+        // CORREÇÃO APLICADA: Adiciona ^ e $ para forçar a correspondência exata.
+        const searchString = selectedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
         
         const column = dataTable.column(columnIndex);
         if (searchString) {
@@ -767,3 +769,5 @@ function exportExcel(table){
     XLSX.writeFile(wb, "Cargas.xlsx"); // Função para salvar o arquivo XLSX
 }
 </script>
+
+}
