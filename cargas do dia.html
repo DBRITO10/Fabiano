@@ -451,7 +451,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
                     let color = '';
                     if (['ARMARIO', 'COMODA', 'COZINHA', 'BERÇO', 'MULTIUSO', 'PAINEL', 'ROUPEIRO','ARMARIOS', 'MODULOS', 'MODULO'].includes(cellValue)) {
                         color = '#FFFF00';
-                    } else if (['CELULAR', 'NOTEBOOK', 'TABLET','RELÓGIO'].includes(cellValue)) {
+                    } else if (['CELULAR', 'NOTEBOOK', 'IMPRESSORA', 'TABLET','RELÓGIO'].includes(cellValue)) {
                         color = '#00BFFF';
                     } else if (cellValue === 'MESA') {
                         color = '#00FF00';
