@@ -20,6 +20,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
 
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
   <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.dataTables.min.css">
@@ -297,7 +299,7 @@ const coresStatus = {
     'SOBRE AJUSTE': '#8B27F5',
     'SEM NOTA': '#FF0000',
     'REAGENDADA': '#800080',
-    'CANCELADA': '#000099',
+    'CANCELADA': '#F54927',
     'OC PENDENTE': '#808080',
     'SEM TRIANGULAÇÃO': '#FFA500',
     'VENCIMENTO ERRADO': '#FFB6C1',
@@ -332,12 +334,11 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       if(col==="NOTAS" && valor==="") valor="Sem nota";
       
       let cellHtml;
-      // Note: O toUpperCase() foi removido daqui para bater com o coresProduto, mas é importante garantir que os dados da planilha usem o mesmo case.
-      if(col === "TIPO DE PRODUTO" && coresProduto[valor.toUpperCase()]) { // Garantindo que o case do produto seja tratado
+      if(col === "TIPO DE PRODUTO" && coresProduto[valor.toUpperCase()]) { 
           cellHtml = `<td style="background-color: ${coresProduto[valor.toUpperCase()]};">${valor}</td>`;
       } else if (col === "STATUS DA CARGA" && coresStatus[valor]) {
           cellHtml = `<td style="background-color: ${coresStatus[valor]};">${valor}</td>`;
-      } else if(col==="NOTAS" || col==="CARGAS" || col==="PEDIDO") { // Coluna CARGAS e PEDIDO adicionada para popup
+      } else if(col==="NOTAS" || col==="CARGAS" || col==="PEDIDO") { 
           cellHtml = `<td class="popup-cell" data-col="${col}" data-text="${valor}">${valor}</td>`;
       } else {
           cellHtml = `<td>${valor}</td>`;
@@ -384,7 +385,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
   $("#planilha_filter").append(`
     <button id="btnShare">📤 Compartilhar</button>
     <div id="shareMenu">
-      <div class="share-option" data-type="pdf">📄 Exportar PDF</div>
+      <div class="share-option" data-type="pdf">📄 Exportar PDF (Profissional)</div>
       <div class="share-option" data-type="excel">📊 Exportar Excel</div>
     </div>
   `);
@@ -400,7 +401,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     shareMenu.style.display="none";
   });
 
-  // Lógica do Modal de Filtro
+  // Lógica do Modal de Filtro (Mantido como estava)
   $(document).on('click', '.filter-select', function() {
       const columnIndex = $(this).closest('th').index();
       const columnName = colunasDesejadas[columnIndex];
@@ -411,17 +412,15 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       // NOVO: Ordenação específica para a coluna "DATA"
       if (columnName === "DATA"){
           uniqueValues.sort((a,b)=>{ 
-              // Função auxiliar para converter "dd/mm/yyyy" em milissegundos (timestamp) para comparação
               const toTime=v=>{ 
                   const parts = v.split("/").map(Number); 
-                  // parts[1]-1 é porque o mês no JavaScript é 0-based
                   if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime(); 
-                  return 0; // Retorna 0 para valores inválidos/vazios
+                  return 0; 
               }; 
               return toTime(a)-toTime(b); 
           });
       } else { 
-          uniqueValues.sort(); // Mantém a ordenação alfabética para outras colunas
+          uniqueValues.sort(); 
       }
       
       const savedFilter = localStorage.getItem(`filtroColuna${columnIndex}`);
@@ -444,12 +443,10 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       $('#filterModalOverlay').data('column-index', columnIndex).show();
   });
 
-  // Lógica para os novos botões do modal
   $('#btnSelectAll').on('click', function() {
       $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
   });
   
-  // Modificação: Clicar em "Desmarcar Todos" também limpa o filtro e exibe tudo.
   $('#btnSelectNone').on('click', function() {
       const columnIndex = $('#filterModalOverlay').data('column-index');
       localStorage.removeItem(`filtroColuna${columnIndex}`);
@@ -496,7 +493,6 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       atualizarTotalCargas();
   }
 
-  // Modificação: Clicar fora do modal também limpa o filtro e exibe tudo.
   $('#filterModalOverlay').on('click touchstart', function(e) {
       if ($(e.target).is('#filterModalOverlay')) {
           const columnIndex = $(this).data('column-index');
@@ -507,7 +503,6 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       }
   });
   
-  // Executa as funções de atualização e aplicação de filtros após a tabela ser inicializada
   aplicarFiltrosSalvos();
   atualizarBotaoFiltro();
 }});
@@ -523,7 +518,6 @@ $(document).on("click",".popup-cell",function(){
 $("#fecharPopup, #notaOverlay").on("click",function(){ $("#notaOverlay, #notaPopup").fadeOut(200); });
 
 // Export PDF/Excel
-// Helper para converter Hex para RGB array para jsPDF (ADICIONADO)
 function hexToRgb(hex) {
     let r = 0, g = 0, b = 0;
     if (hex.length === 4) {
@@ -538,8 +532,7 @@ function hexToRgb(hex) {
     return [r, g, b];
 }
 
-// exportPDF (ATUALIZADO PARA USAR LINEBREAK E REMOVER LARGURAS FIXAS)
-function exportPDF(table){
+async function exportPDF(table){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation:"landscape"});
   const headers = colunasDesejadas;
@@ -550,14 +543,14 @@ function exportPDF(table){
 
   // 1. Título e Total
   doc.setFontSize(16);
-  doc.text("Relatório de Recebimento", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+  doc.text("Relatório de Recebimento - Móveis Simonetti", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
   
   let currentY = 25;
   doc.setFontSize(12);
   doc.text(`TOTAL DE REGISTROS: ${totalCargas}`, 10, currentY);
   currentY += 5;
 
-  // 2. CÁLCULO E TABELA DE STATUS DE RESUMO 
+  // 2. CÁLCULO E GRÁFICO DE STATUS (NOVO RECURSO)
   const statusCounts = {};
   data.forEach(row => {
       const status = row[statusColIndex];
@@ -566,52 +559,65 @@ function exportPDF(table){
       }
   });
   
-  const summaryBody = Object.keys(statusCounts).map(status => {
-      return [status, statusCounts[status]];
+  const chartLabels = Object.keys(statusCounts);
+  const chartData = Object.values(statusCounts);
+  const chartColors = chartLabels.map(label => coresStatus[label] || '#808080');
+  
+  // Renderizar o gráfico em um canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = 400; // Largura do gráfico
+  canvas.height = 150; // Altura do gráfico (incluindo legenda)
+  
+  new Chart(canvas.getContext('2d'), {
+      type: 'pie',
+      data: {
+          labels: chartLabels,
+          datasets: [{
+              data: chartData,
+              backgroundColor: chartColors,
+              borderColor: '#FFF',
+              borderWidth: 1
+          }]
+      },
+      options: {
+          responsive: false,
+          maintainAspectRatio: false,
+          plugins: {
+              legend: {
+                  position: 'right',
+                  labels: {
+                      font: {
+                          size: 9
+                      }
+                  }
+              },
+              title: {
+                  display: true,
+                  text: 'Distribuição de Status de Cargas',
+                  font: {
+                      size: 11,
+                      weight: 'bold'
+                  }
+              }
+          }
+      }
   });
 
-  if (summaryBody.length > 0) {
-      doc.autoTable({
-          startY: currentY + 5, 
-          head:[['Status da Carga', 'Quantidade']], 
-          body: summaryBody,
-          // Define a margem para criar uma tabela menor
-          margin: { left: 10, right: doc.internal.pageSize.getWidth() - 80 },
-          styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0], fontStyle: 'normal', halign: 'center' },
-          headStyles: { 
-              fillColor: hexToRgb('#808080'), // Cor do cabeçalho
-              textColor: [255, 255, 255],
-              fontStyle: 'bold',
-              halign: 'center'
-          },
-          columnStyles: {
-              0: { halign: 'left', fontStyle: 'bold', textColor: [255, 255, 255] },
-              1: { halign: 'center', fontStyle: 'bold', textColor: [255, 255, 255] }
-          },
-          didParseCell: function(cellData) {
-              // Aplica a cor de fundo nas células de resumo
-              if (cellData.section === 'body') {
-                  const statusValue = cellData.row.raw[0];
-                  // Usa o coresStatus definido no HTML
-                  const color = coresStatus[statusValue] || '#808080';
-                  cellData.cell.styles.fillColor = hexToRgb(color);
-                  cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
-              }
-          },
-          didDrawPage: function(data) {
-              currentY = data.cursor.y;
-          }
-      });
-  } else {
-      currentY += 10;
-  }
+  // Adicionar o gráfico ao PDF
+  // Atraso para garantir a renderização completa do Chart.js
+  await new Promise(resolve => setTimeout(resolve, 50)); 
   
+  const chartImage = canvas.toDataURL('image/png');
+  // Ajuste de posição para que o gráfico fique à direita e a tabela inicie abaixo
+  doc.addImage(chartImage, 'PNG', 160, currentY, 130, 60); 
+  currentY += 75; // Pula o espaço do gráfico para iniciar a tabela
+
   doc.setFontSize(12);
-  doc.text(`Tabela de Cargas (${totalCargas} registros):`, 10, currentY + 5);
+  doc.text(`Tabela de Cargas (${totalCargas} registros):`, 10, currentY);
   
   // 3. Tabela de dados principal
   doc.autoTable({
-    startY: currentY + 10, 
+    startY: currentY + 5, 
     head:[headers], 
     body:data, 
     styles:{
@@ -619,8 +625,10 @@ function exportPDF(table){
         cellPadding: 2, 
         halign: 'center', 
         textColor: [0, 0, 0], 
-        // CORREÇÃO: Usa 'linebreak' para quebrar o texto e mostrar o conteúdo completo.
-        overflow: 'linebreak' 
+        // Quebra de linha profissional: usa 'linebreak' para o texto completo
+        overflow: 'linebreak', 
+        // Garante que o cabeçalho se repita em cada página
+        headStyles: { rowPageBreak: 'auto' }, 
     }, 
     headStyles: {
         halign: 'center', 
@@ -649,8 +657,19 @@ function exportPDF(table){
             } 
         }
     },
-    // Removendo columnStyles fixos para CARGAS e PEDIDO para permitir a quebra de linha total
-    columnStyles:{}
+    columnStyles:{
+      // Ajusta o cellWidth para as colunas longas (CARGAS, PEDIDO, NOTAS) 
+      // para minimizar a quebra de linha, mantendo a exibição completa.
+      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 35, overflow: 'linebreak' }, 
+      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 35, overflow: 'linebreak' }, 
+      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 35, overflow: 'linebreak' }
+    },
+    // Garante que as linhas não sejam cortadas ao meio ao mudar de página
+    willDrawCell: function(data) {
+        if (data.section === 'body') {
+            data.cell.styles.minCellHeight = 10; // Altura mínima para evitar corte visual
+        }
+    }
   });
   doc.save("recebimento.pdf");
 }
