@@ -20,9 +20,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-
-
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
   <link rel="stylesheet" href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.dataTables.min.css">
 
@@ -550,7 +547,7 @@ async function exportPDF(table){
   doc.text(`TOTAL DE REGISTROS: ${totalCargas}`, 10, currentY);
   currentY += 5;
 
-  // 2. CÁLCULO E GRÁFICO DE STATUS (NOVO RECURSO)
+  // 2. CÁLCULO E TABELA DE RESUMO DE STATUS (REINTEGRADO)
   const statusCounts = {};
   data.forEach(row => {
       const status = row[statusColIndex];
@@ -558,66 +555,63 @@ async function exportPDF(table){
           statusCounts[status] = (statusCounts[status] || 0) + 1;
       }
   });
-  
-  const chartLabels = Object.keys(statusCounts);
-  const chartData = Object.values(statusCounts);
-  const chartColors = chartLabels.map(label => coresStatus[label] || '#808080');
-  
-  // Renderizar o gráfico em um canvas
-  const canvas = document.createElement('canvas');
-  canvas.width = 400; // Largura do gráfico
-  canvas.height = 150; // Altura do gráfico (incluindo legenda)
-  
-  new Chart(canvas.getContext('2d'), {
-      type: 'pie',
-      data: {
-          labels: chartLabels,
-          datasets: [{
-              data: chartData,
-              backgroundColor: chartColors,
-              borderColor: '#FFF',
-              borderWidth: 1
-          }]
-      },
-      options: {
-          responsive: false,
-          maintainAspectRatio: false,
-          plugins: {
-              legend: {
-                  position: 'right',
-                  labels: {
-                      font: {
-                          size: 9
-                      }
-                  }
-              },
-              title: {
-                  display: true,
-                  text: 'Distribuição de Status de Cargas',
-                  font: {
-                      size: 11,
-                      weight: 'bold'
-                  }
-              }
-          }
-      }
+
+  // Preparar dados para a tabela de resumo
+  const summaryBody = Object.keys(statusCounts).map(status => {
+    return [status, statusCounts[status]];
   });
-
-  // Adicionar o gráfico ao PDF
-  // Atraso para garantir a renderização completa do Chart.js
-  await new Promise(resolve => setTimeout(resolve, 50)); 
   
-  const chartImage = canvas.toDataURL('image/png');
-  // Ajuste de posição para que o gráfico fique à direita e a tabela inicie abaixo
-  doc.addImage(chartImage, 'PNG', 160, currentY, 130, 60); 
-  currentY += 75; // Pula o espaço do gráfico para iniciar a tabela
-
   doc.setFontSize(12);
-  doc.text(`Tabela de Cargas (${totalCargas} registros):`, 10, currentY);
+  doc.text('Resumo por Status:', 10, currentY);
+
+  if (summaryBody.length > 0) {
+    doc.autoTable({
+        startY: currentY + 5, 
+        head:[['Status', 'Quantidade']], 
+        body: summaryBody,
+        margin: { left: 10, right: doc.internal.pageSize.getWidth() - 100 }, // Tabela menor e alinhada à esquerda
+        styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0], fontStyle: 'normal', halign: 'center' },
+        headStyles: { 
+            fillColor: hexToRgb('#808080'), // Cor do cabeçalho
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            halign: 'center'
+        },
+        columnStyles: {
+            0: { halign: 'left', fontStyle: 'bold', textColor: [255, 255, 255] }, // Coluna Status: Texto branco e negrito
+            1: { halign: 'center', fontStyle: 'bold', textColor: [255, 255, 255] } // Coluna Quantidade: Texto branco e negrito
+        },
+        didParseCell: function(cellData) {
+            // Aplica a cor de fundo nas células de resumo
+            if (cellData.section === 'body' && cellData.column.index === 0) {
+                const statusValue = cellData.cell.text.join('').trim();
+                const color = coresStatus[statusValue] || '#808080';
+                cellData.cell.styles.fillColor = hexToRgb(color);
+                cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
+            }
+            // Aplica cor de fundo na coluna de quantidade (opcional, mas fica mais bonito)
+            if (cellData.section === 'body' && cellData.column.index === 1) {
+                const statusValue = cellData.row.raw[0].trim();
+                const color = coresStatus[statusValue] || '#808080';
+                cellData.cell.styles.fillColor = hexToRgb(color);
+                cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
+            }
+        },
+        didDrawPage: function(data) {
+            // O jsPDF-AutoTable retorna o final da tabela no data.cursor.y
+            currentY = data.cursor.y;
+        }
+    });
+  } else {
+    currentY += 10;
+  }
   
   // 3. Tabela de dados principal
+  doc.setFontSize(12);
+  doc.text(`Tabela de Cargas (${totalCargas} registros):`, 10, currentY + 5);
+
   doc.autoTable({
-    startY: currentY + 5, 
+    startY: currentY + 10, 
     head:[headers], 
     body:data, 
     styles:{
