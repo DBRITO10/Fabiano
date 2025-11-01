@@ -43,22 +43,13 @@
       background: #808080; 
       color: #fff; 
       padding: 8px; 
-      text-align: center; /* CENTRALIZADO */
+      text-align: center; 
       font-weight: bold; 
       border: 1px solid #CCC; 
     }
     tbody tr:nth-child(even) { background-color: #F2F2F2; }
     tbody tr:nth-child(odd) { background-color: #FFF; }
-    td { 
-      padding: 8px 12px; 
-      border: 1px solid #CCC; 
-      white-space: nowrap; 
-      text-align: center; /* CENTRALIZADO */
-      max-width: 150px; 
-      overflow: hidden; 
-      text-overflow: ellipsis; 
-      color: #000; 
-    }
+    td { padding: 8px 12px; border: 1px solid #CCC; white-space: nowrap; text-align: center; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: #000; }
     .filter-select { width: 100%; padding: 6px; font-size: 13px; background: #E0F4FF; border: 1px solid #CCC; border-radius: 4px; color: #000; text-align: center; appearance: auto; cursor: pointer;}
     .filter-select.applied {
         background-color: #FFD700;
@@ -149,7 +140,7 @@
       background-color: #28a745;
     }
     
-    /* Novo CSS para o modal de cargas (inativo, mantido por garantia) */
+    /* Novo CSS para o modal de cargas */
     #cargaModal {
         display: none;
         position: fixed;
@@ -340,13 +331,12 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       if(col==="NOTAS" && valor==="") valor="Sem nota";
       
       let cellHtml;
-      if(col === "TIPO DE PRODUTO" && coresProduto[valor.toUpperCase()]) {
-          // Garante que o valor da célula é convertido para maiúsculas para o lookup de cor
-          cellHtml = `<td style="background-color: ${coresProduto[valor.toUpperCase()]};">${valor}</td>`;
+      // Note: O toUpperCase() foi removido daqui para bater com o coresProduto, mas é importante garantir que os dados da planilha usem o mesmo case.
+      if(col === "TIPO DE PRODUTO" && coresProduto[valor]) {
+          cellHtml = `<td style="background-color: ${coresProduto[valor]};">${valor}</td>`;
       } else if (col === "STATUS DA CARGA" && coresStatus[valor]) {
           cellHtml = `<td style="background-color: ${coresStatus[valor]};">${valor}</td>`;
-      // CORREÇÃO: Aplica popup a CARGAS, PEDIDO e NOTAS
-      } else if(col==="NOTAS" || col==="CARGAS" || col==="PEDIDO") {
+      } else if(col==="NOTAS" || col==="CARGAS" || col==="PEDIDO") { // Coluna CARGAS foi adicionada
           cellHtml = `<td class="popup-cell" data-col="${col}" data-text="${valor}">${valor}</td>`;
       } else {
           cellHtml = `<td>${valor}</td>`;
@@ -521,19 +511,18 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
   atualizarBotaoFiltro();
 }});
 
-// Popup para NOTAS, CARGAS e PEDIDOS (agora com quebra de linha)
+// Popup para NOTAS e CARGAS e PEDIDOS
 $(document).on("click",".popup-cell",function(){
   const text = $(this).data("text");
   const col = $(this).data("col");
   $("#notaPopup h2").text(col);
-  // CORREÇÃO: Troca vírgulas por vírgula + quebra de linha para formatar listas longas
-  $("#notaConteudo").text(text.replace(/,/g, ',\n')); 
+  $("#notaConteudo").text(text);
   $("#notaOverlay, #notaPopup").fadeIn(200);
 });
 $("#fecharPopup, #notaOverlay").on("click",function(){ $("#notaOverlay, #notaPopup").fadeOut(200); });
 
 // Export PDF/Excel
-// Helper para converter Hex para RGB array para jsPDF (Implementado do cargas do dia.html)
+// Helper para converter Hex para RGB array para jsPDF
 function hexToRgb(hex) {
     let r = 0, g = 0, b = 0;
     if (hex.length === 4) {
@@ -554,8 +543,8 @@ function exportPDF(table){
   const headers = colunasDesejadas;
   const data = table.rows({search:"applied"}).data().toArray();
   const totalCargas = data.length;
-  const produtoIndex = colunasDesejadas.indexOf("TIPO DE PRODUTO");
-  const statusIndex = colunasDesejadas.indexOf("STATUS DA CARGA");
+  const statusColIndex = colunasDesejadas.indexOf("STATUS DA CARGA");
+  const produtoColIndex = colunasDesejadas.indexOf("TIPO DE PRODUTO");
 
   // 1. Título e Total
   doc.setFontSize(16);
@@ -564,49 +553,106 @@ function exportPDF(table){
   let currentY = 25;
   doc.setFontSize(12);
   doc.text(`TOTAL DE REGISTROS: ${totalCargas}`, 10, currentY);
+  currentY += 5;
+
+  // 2. CÁLCULO E TABELA DE STATUS DE RESUMO (Implementação do recurso solicitado)
+  const statusCounts = {};
+  data.forEach(row => {
+      const status = row[statusColIndex];
+      if (status) {
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+      }
+  });
   
-  // 2. Tabela de dados principal
+  // Preparar dados para a tabela de resumo
+  const summaryBody = Object.keys(statusCounts).map(status => {
+      return [status, statusCounts[status]];
+  });
+
+  if (summaryBody.length > 0) {
+      doc.autoTable({
+          startY: currentY + 5, 
+          head:[['Status da Carga', 'Quantidade']], 
+          body: summaryBody,
+          // Define a margem para criar uma tabela menor
+          margin: { left: 10, right: doc.internal.pageSize.getWidth() - 80 },
+          styles: { fontSize: 8, cellPadding: 2, textColor: [0, 0, 0], fontStyle: 'normal', halign: 'center' },
+          headStyles: { 
+              fillColor: hexToRgb('#808080'), // Cor do cabeçalho
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+              halign: 'center'
+          },
+          columnStyles: {
+              0: { halign: 'left', fontStyle: 'bold', textColor: [255, 255, 255] },
+              1: { halign: 'center', fontStyle: 'bold', textColor: [255, 255, 255] }
+          },
+          didParseCell: function(cellData) {
+              // Aplica a cor de fundo nas células de resumo
+              if (cellData.section === 'body') {
+                  const statusValue = cellData.row.raw[0];
+                  // Usa o coresStatus definido no HTML
+                  const color = coresStatus[statusValue] || '#808080';
+                  cellData.cell.styles.fillColor = hexToRgb(color);
+                  cellData.cell.styles.textColor = [255, 255, 255]; // Texto branco
+              }
+          },
+          didDrawPage: function(data) {
+              currentY = data.cursor.y;
+          }
+      });
+  } else {
+      currentY += 10;
+  }
+  
+  doc.setFontSize(12);
+  doc.text(`Tabela de Cargas (${totalCargas} registros):`, 10, currentY + 5);
+  
+  // 3. Tabela de dados principal
   doc.autoTable({
-    startY: currentY + 5, 
+    startY: currentY + 10, 
     head:[headers], 
     body:data, 
     styles:{
         fontSize: 8, 
         cellPadding: 2, 
-        halign: 'center', // Centraliza o conteúdo das células
+        halign: 'center', 
         textColor: [0, 0, 0], 
+        // MODIFICAÇÃO: Garante que o texto não quebre linha a menos que seja forçado
+        overflow: 'ellipsize'
     }, 
     headStyles: {
-        halign: 'center', // Centraliza o cabeçalho
+        halign: 'center', 
         textColor: [255, 255, 255], 
-        fillColor: hexToRgb('#808080') // Cinza do tema
+        fillColor: hexToRgb('#808080')
     }, 
     didParseCell: function(cellData) {
         if (cellData.section === 'body') {
+            // Aplica cor de fundo e texto branco para STATUS DA CARGA
+            if (cellData.column.index === statusColIndex) {
+                const statusValue = cellData.cell.text.join('').trim();
+                const color = coresStatus[statusValue] || '';
+                if (color) {
+                    cellData.cell.styles.fillColor = hexToRgb(color);
+                    cellData.cell.styles.textColor = [255, 255, 255];
+                    cellData.cell.styles.fontStyle = 'bold';
+                }
+            }
             // Aplica cor de fundo para TIPO DE PRODUTO
-            if (cellData.column.index === produtoIndex) {
-                // Apenas pega o valor da célula para aplicar a cor
+            else if (cellData.column.index === produtoColIndex) {
                 const produtoValue = cellData.cell.text.join('').trim().toUpperCase();
                 const color = coresProduto[produtoValue] || '';
                 if (color) {
                     cellData.cell.styles.fillColor = hexToRgb(color);
                 }
             } 
-            // Aplica cor de fundo para STATUS DA CARGA
-            else if (cellData.column.index === statusIndex) {
-                const statusValue = cellData.cell.text.join('').trim();
-                const color = coresStatus[statusValue] || '';
-                if (color) {
-                    cellData.cell.styles.fillColor = hexToRgb(color);
-                }
-            }
         }
     },
     columnStyles:{
-      // Configura colunas com muito texto para quebrar linha no PDF
-      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 'auto', overflow: 'linebreak' }, 
-      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 'auto', overflow: 'linebreak' },
-      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 'auto', overflow: 'linebreak' }
+      // Configura colunas de números longos (CARGAS, PEDIDO, NOTAS) para usar ellipsize e ter um width fixo
+      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 30, overflow: 'ellipsize' },
+      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 30, overflow: 'ellipsize' },
+      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 30, overflow: 'ellipsize' }
     }
   });
   doc.save("recebimento.pdf");
