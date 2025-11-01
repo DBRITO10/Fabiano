@@ -555,7 +555,7 @@ function exportPDF(table){
   doc.text(`TOTAL DE REGISTROS: ${totalCargas}`, 10, currentY);
   currentY += 5;
 
-  // 2. CÁLCULO E TABELA DE STATUS DE RESUMO (Implementação do recurso solicitado)
+  // 2. CÁLCULO E TABELA DE STATUS DE RESUMO (Com cores)
   const statusCounts = {};
   data.forEach(row => {
       const status = row[statusColIndex];
@@ -618,8 +618,8 @@ function exportPDF(table){
         cellPadding: 2, 
         halign: 'center', 
         textColor: [0, 0, 0], 
-        // MODIFICAÇÃO: Garante que o texto não quebre linha a menos que seja forçado
-        overflow: 'ellipsize'
+        // CORREÇÃO: Usa 'linebreak' para quebrar o texto e mostrar o conteúdo completo.
+        overflow: 'linebreak' 
     }, 
     headStyles: {
         halign: 'center', 
@@ -649,10 +649,10 @@ function exportPDF(table){
         }
     },
     columnStyles:{
-      // Configura colunas de números longos (CARGAS, PEDIDO, NOTAS) para usar ellipsize e ter um width fixo
-      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 30, overflow: 'ellipsize' },
-      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 30, overflow: 'ellipsize' },
-      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 30, overflow: 'ellipsize' }
+      // Configura colunas de números longos (CARGAS, PEDIDO, NOTAS) para usar 'linebreak'
+      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 'auto', overflow: 'linebreak' }, 
+      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 'auto', overflow: 'linebreak' }, 
+      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 'auto', overflow: 'linebreak' }
     }
   });
   doc.save("recebimento.pdf");
