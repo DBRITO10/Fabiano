@@ -43,13 +43,22 @@
       background: #808080; 
       color: #fff; 
       padding: 8px; 
-      text-align: center; 
+      text-align: center; /* CENTRALIZADO */
       font-weight: bold; 
       border: 1px solid #CCC; 
     }
     tbody tr:nth-child(even) { background-color: #F2F2F2; }
     tbody tr:nth-child(odd) { background-color: #FFF; }
-    td { padding: 8px 12px; border: 1px solid #CCC; white-space: nowrap; text-align: center; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: #000; }
+    td { 
+      padding: 8px 12px; 
+      border: 1px solid #CCC; 
+      white-space: nowrap; 
+      text-align: center; /* CENTRALIZADO */
+      max-width: 150px; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+      color: #000; 
+    }
     .filter-select { width: 100%; padding: 6px; font-size: 13px; background: #E0F4FF; border: 1px solid #CCC; border-radius: 4px; color: #000; text-align: center; appearance: auto; cursor: pointer;}
     .filter-select.applied {
         background-color: #FFD700;
@@ -140,7 +149,7 @@
       background-color: #28a745;
     }
     
-    /* Novo CSS para o modal de cargas */
+    /* Novo CSS para o modal de cargas (inativo, mantido por garantia) */
     #cargaModal {
         display: none;
         position: fixed;
@@ -230,7 +239,7 @@
   function logout(){
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("username");
-    window.history.replaceState(null, null, "login.html"); // Linha adicionada para corrigir o problema
+    window.history.replaceState(null, null, "login.html");
     window.location.href = "login.html";
   }
 </script>
@@ -322,7 +331,6 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     filterRow.innerHTML += `<th><button class="filter-select" data-column-name="${col}">Filtrar / Limpar Filtro</button></th>`;
   });
   
-  // Atualizado para 9 colunas
   document.querySelector("#planilha tfoot th").setAttribute("colspan", colunasDesejadas.length);
 
   data.forEach(row => {
@@ -332,11 +340,13 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
       if(col==="NOTAS" && valor==="") valor="Sem nota";
       
       let cellHtml;
-      if(col === "TIPO DE PRODUTO" && coresProduto[valor]) {
-          cellHtml = `<td style="background-color: ${coresProduto[valor]};">${valor}</td>`;
+      if(col === "TIPO DE PRODUTO" && coresProduto[valor.toUpperCase()]) {
+          // Garante que o valor da célula é convertido para maiúsculas para o lookup de cor
+          cellHtml = `<td style="background-color: ${coresProduto[valor.toUpperCase()]};">${valor}</td>`;
       } else if (col === "STATUS DA CARGA" && coresStatus[valor]) {
           cellHtml = `<td style="background-color: ${coresStatus[valor]};">${valor}</td>`;
-      } else if(col==="NOTAS" || col==="CARGAS" || col==="PEDIDO") { // CORREÇÃO: Aplica popup a CARGAS e PEDIDO
+      // CORREÇÃO: Aplica popup a CARGAS, PEDIDO e NOTAS
+      } else if(col==="NOTAS" || col==="CARGAS" || col==="PEDIDO") {
           cellHtml = `<td class="popup-cell" data-col="${col}" data-text="${valor}">${valor}</td>`;
       } else {
           cellHtml = `<td>${valor}</td>`;
@@ -511,19 +521,19 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
   atualizarBotaoFiltro();
 }});
 
-// Popup para NOTAS, CARGAS e PEDIDOS (agora com data-col e data-text)
+// Popup para NOTAS, CARGAS e PEDIDOS (agora com quebra de linha)
 $(document).on("click",".popup-cell",function(){
   const text = $(this).data("text");
   const col = $(this).data("col");
   $("#notaPopup h2").text(col);
-  // Troca vírgulas por vírgula + quebra de linha para formatar listas longas
+  // CORREÇÃO: Troca vírgulas por vírgula + quebra de linha para formatar listas longas
   $("#notaConteudo").text(text.replace(/,/g, ',\n')); 
   $("#notaOverlay, #notaPopup").fadeIn(200);
 });
 $("#fecharPopup, #notaOverlay").on("click",function(){ $("#notaOverlay, #notaPopup").fadeOut(200); });
 
 // Export PDF/Excel
-// Helper para converter Hex para RGB array para jsPDF (Importado do cargas do dia.html)
+// Helper para converter Hex para RGB array para jsPDF (Implementado do cargas do dia.html)
 function hexToRgb(hex) {
     let r = 0, g = 0, b = 0;
     if (hex.length === 4) {
@@ -575,6 +585,7 @@ function exportPDF(table){
         if (cellData.section === 'body') {
             // Aplica cor de fundo para TIPO DE PRODUTO
             if (cellData.column.index === produtoIndex) {
+                // Apenas pega o valor da célula para aplicar a cor
                 const produtoValue = cellData.cell.text.join('').trim().toUpperCase();
                 const color = coresProduto[produtoValue] || '';
                 if (color) {
@@ -592,14 +603,15 @@ function exportPDF(table){
         }
     },
     columnStyles:{
-      // Ajuste de largura para colunas com potencial de muito texto
-      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 'auto' }, 
-      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 'auto' },
-      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 'auto' }
+      // Configura colunas com muito texto para quebrar linha no PDF
+      [colunasDesejadas.indexOf("CARGAS")]: { cellWidth: 'auto', overflow: 'linebreak' }, 
+      [colunasDesejadas.indexOf("PEDIDO")]: { cellWidth: 'auto', overflow: 'linebreak' },
+      [colunasDesejadas.indexOf("NOTAS")]: { cellWidth: 'auto', overflow: 'linebreak' }
     }
   });
   doc.save("recebimento.pdf");
 }
+
 function exportExcel(table){
   const headers = colunasDesejadas;
   const data = table.rows({search:"applied"}).data().toArray();
