@@ -251,10 +251,26 @@
 </script>
 
 <h1>CARGAS DO DIA</h1>
-<div style="width: 100%; max-width: 400px; margin: 20px auto;">
-    <canvas id="statusChart"></canvas>
+<div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; margin: 20px auto; max-width: 800px;">
+    <div id="chartContainer" style="width: 100%; max-width: 400px; padding: 10px;">
+        <canvas id="statusChart"></canvas>
+    </div>
+    <div id="totalCargasVisual" style="
+        font-size: 20px; 
+        font-weight: bold; 
+        color: #1E90FF; 
+        text-align: center; 
+        padding: 15px; 
+        border: 2px solid #1E90FF; 
+        border-radius: 8px; 
+        margin-top: 10px; 
+        width: 100%; 
+        max-width: 250px; 
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    ">
+        Total de Cargas: 0
+    </div>
 </div>
-
 <table id="planilha" class="display nowrap">
     <thead>
         <tr class="headers"></tr>
@@ -482,11 +498,21 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         dataTable.draw();
     }
 
-    // Atualiza total de cargas
+    // Atualiza total de cargas (MODIFICADO para incluir o novo elemento visual)
     function atualizarTotalCargas(){
         const total = dataTable.rows({search:'applied'}).data().length;
-        document.getElementById("totalCargas").textContent = "Total de Cargas: "+total;
+        const totalText = "Total de Cargas: " + total;
+        
+        // Atualiza o rodapé da tabela
+        document.getElementById("totalCargas").textContent = totalText;
+        
+        // NOVO: Atualiza o elemento visual (perto do gráfico)
+        const totalVisualElement = document.getElementById("totalCargasVisual");
+        if (totalVisualElement) {
+            totalVisualElement.textContent = totalText;
+        }
     }
+
     dataTable.on('draw', () => {
         atualizarTotalCargas();
         renderizarGrafico(dataTable.rows({search:'applied'}).data().toArray());
@@ -770,3 +796,6 @@ function exportExcel(table){
 }
 </script>
 
+
+</body>
+</html>
