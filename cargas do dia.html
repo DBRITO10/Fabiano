@@ -353,6 +353,12 @@ function renderizarGrafico(data) {
     const chartData = Object.values(statusCounts);
     const backgroundColors = labels.map(label => coresStatus[label] || '#808080');
 
+    // --- NOVO CÓDIGO DE RESPONSIVIDADE ---
+    // Define a posição da legenda: 'right' para telas grandes, 'bottom' para telas pequenas (celular).
+    const isMobile = window.innerWidth < 768; // Exemplo de breakpoint para celular/tablet
+    const legendPosition = isMobile ? 'bottom' : 'right';
+    // ------------------------------------
+
     if (myChart) {
         myChart.destroy();
     }
@@ -376,7 +382,7 @@ function renderizarGrafico(data) {
             responsive: true,
             plugins: {
                 legend: {
-                    position: 'right', // NOVO: Legendas à direita em telas grandes. Em telas pequenas, o Chart.js deve voltar para 'top' ou 'bottom' automaticamente.
+                    position: legendPosition, // USANDO POSIÇÃO DINÂMICA
                     align: 'center', 
                 },
                 tooltip: {
@@ -391,7 +397,7 @@ function renderizarGrafico(data) {
                     }
                 }
             },
-            maintainAspectRatio: false // Garante que o height/width do container seja respeitado
+            maintainAspectRatio: false 
         }
     });
 }
@@ -513,7 +519,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         // Atualiza o rodapé da tabela
         document.getElementById("totalCargas").textContent = totalText;
         
-        // NOVO: Atualiza o elemento visual (perto do gráfico)
+        // Atualiza o elemento visual (perto do gráfico)
         const totalVisualElement = document.getElementById("totalCargasVisual");
         if (totalVisualElement) {
             totalVisualElement.textContent = totalText;
@@ -522,7 +528,8 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 
     dataTable.on('draw', () => {
         atualizarTotalCargas();
-        renderizarGrafico(dataTable.rows({search:'applied'}).data().toArray());
+        // Garante que o gráfico seja redesenhado com a posição correta da legenda
+        renderizarGrafico(dataTable.rows({search:'applied'}).data().toArray()); 
     });
 
     $(".dataTables_wrapper").css("position","relative");
