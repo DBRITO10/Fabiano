@@ -251,10 +251,13 @@
 </script>
 
 <h1>CARGAS DO DIA</h1>
-<div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; margin: 20px auto; max-width: 800px;">
-    <div id="chartContainer" style="width: 100%; max-width: 400px; padding: 10px;">
+
+<div style="margin: 20px auto; max-width: 1000px; text-align: center;">
+    
+    <div id="chartContainer" style="width: 100%; max-width: 600px; height: 350px; padding: 10px; margin: 0 auto;">
         <canvas id="statusChart"></canvas>
     </div>
+    
     <div id="totalCargasVisual" style="
         font-size: 20px; 
         font-weight: bold; 
@@ -263,13 +266,16 @@
         padding: 15px; 
         border: 2px solid #1E90FF; 
         border-radius: 8px; 
-        margin-top: 10px; 
+        margin-top: 20px; /* Maior separação */
+        margin-left: auto;
+        margin-right: auto;
         width: 100%; 
         max-width: 250px; 
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     ">
         Total de Cargas: 0
     </div>
+
 </div>
 <table id="planilha" class="display nowrap">
     <thead>
@@ -370,7 +376,7 @@ function renderizarGrafico(data) {
             responsive: true,
             plugins: {
                 legend: {
-                    position: 'bottom', // ALTERADO: Colocado em 'bottom' para garantir que os rótulos longos fiquem visíveis.
+                    position: 'right', // NOVO: Legendas à direita em telas grandes. Em telas pequenas, o Chart.js deve voltar para 'top' ou 'bottom' automaticamente.
                     align: 'center', 
                 },
                 tooltip: {
@@ -384,7 +390,8 @@ function renderizarGrafico(data) {
                         }
                     }
                 }
-            }
+            },
+            maintainAspectRatio: false // Garante que o height/width do container seja respeitado
         }
     });
 }
@@ -498,7 +505,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         dataTable.draw();
     }
 
-    // Atualiza total de cargas (MODIFICADO para incluir o novo elemento visual)
+    // Atualiza total de cargas
     function atualizarTotalCargas(){
         const total = dataTable.rows({search:'applied'}).data().length;
         const totalText = "Total de Cargas: " + total;
