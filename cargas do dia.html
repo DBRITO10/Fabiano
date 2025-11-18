@@ -483,7 +483,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
                     } else if (['CELULAR', 'NOTEBOOK', 'IMPRESSORA', 'TABLET','RELÓGIO'].includes(cellValue)) {
                         color = '#00BFFF';
                     } else if (cellValue === 'MESA') {
-                        color = '#00FF00';
+                        color = '#4CAF50';
                     }
                     if (color) {
                         $(td).css('background-color', color);
