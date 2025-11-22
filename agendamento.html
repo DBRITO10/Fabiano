@@ -191,6 +191,10 @@ thead th.tipo-produto { min-width: 200px !important; }
 #btnApplyFilter {
   background-color: #28a745;
 }
+/* NOVO: Estilo para o botão Cancelar */
+#btnCancel {
+    background-color: #6c757d; 
+}
 
 /* Responsivo melhorado para botões e selects */
 @media (max-width: 768px) {
@@ -275,7 +279,7 @@ function logout(){
         <div id="modalButtons">
             <button id="btnSelectAll">Marcar Todos</button>
             <button id="btnSelectNone">Desmarcar Todos</button>
-            <button id="btnApplyFilter">Aplicar Filtro</button>
+            <button id="btnCancel">Cancelar</button> <button id="btnApplyFilter">Aplicar Filtro</button>
         </div>
     </div>
 </div>
@@ -389,7 +393,8 @@ function inicializarTabela() {
           if (savedFilter) {
             const savedValues = JSON.parse(savedFilter);
             if (savedValues.length > 0) {
-              const searchString = savedValues.map(v => $.fn.dataTable.util.escapeRegex(v)).join('|');
+              // Usa ^ e $ para forçar a correspondência exata dos valores selecionados
+              const searchString = savedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
               column.search(searchString, true, false);
             }
           }
@@ -418,7 +423,8 @@ function inicializarTabela() {
         
         localStorage.setItem(`agendamentoFiltroColuna${columnIndex}`, JSON.stringify(selectedValues));
         
-        const searchString = selectedValues.map(v => $.fn.dataTable.util.escapeRegex(v)).join('|');
+        // Usa ^ e $ para forçar a correspondência exata dos valores selecionados
+        const searchString = selectedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
         
         const column = dataTable.column(columnIndex);
         if (searchString) {
@@ -433,24 +439,21 @@ function inicializarTabela() {
       $(document).on('click', '.filter-select', function() {
         const columnIndex = $(this).closest('th').index();
         const columnName = colunas[columnIndex];
-        const filteredData = dataTable.rows({search:'applied'}).data().toArray();
-        // ALTERAÇÃO AQUI: Garante que os valores únicos são extraídos usando o nome da coluna
-        let uniqueValues = [...new Set(filteredData.map(row => row[columnName] || "" ))].filter(Boolean); // Adicionado || "" para evitar 'undefined' e filter(Boolean) para remover vazios
+        const allDataForColumn = dataTable.rows().data().toArray(); // Usa todos os dados para popular as opções
         
-        // NOVO: Ordenação específica para a coluna "DATA"
+        let uniqueValues = [...new Set(allDataForColumn.map(row => row[columnName] || "" ))].filter(Boolean); 
+        
+        // Ordenação específica para a coluna "DATA"
         if (columnName === "DATA"){
           uniqueValues.sort((a,b)=>{ 
-            // Função auxiliar para converter "dd/mm/yyyy" em milissegundos (timestamp) para comparação
             const toTime=v=>{ 
-                // A data pode vir como "dd/mm/yyyy". No Papaparse, a coluna é referenciada pelo nome.
                 const parts = v.split("/").map(Number); 
-                // parts[1]-1 é porque o mês no JavaScript é 0-based
                 if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime(); 
-                return 0; // Retorna 0 para valores inválidos, que serão colocados no início
+                return 0; 
             }; 
             return toTime(a)-toTime(b); 
           });
-        } else { uniqueValues.sort(); } // Mantém a ordenação alfabética para outras colunas
+        } else { uniqueValues.sort(); }
 
         const savedFilter = localStorage.getItem(`agendamentoFiltroColuna${columnIndex}`);
         const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
@@ -470,17 +473,19 @@ function inicializarTabela() {
         $('#filterModalOverlay').data('column-index', columnIndex).show();
       });
 
-      // Lógica para os novos botões do modal
+      // Lógica dos botões do modal:
+      
       $('#btnSelectAll').on('click', function() {
           $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
       });
 
-      // Modificação: Clicar em "Desmarcar Todos" também limpa o filtro e exibe tudo.
+      // AJUSTADO: Apenas desmarca os checkboxes. O filtro não é limpo imediatamente.
       $('#btnSelectNone').on('click', function() {
-          const columnIndex = $('#filterModalOverlay').data('column-index');
-          localStorage.removeItem(`agendamentoFiltroColuna${columnIndex}`);
-          dataTable.column(columnIndex).search('').draw();
-          atualizarBotaoFiltro();
+          $('#modalCheckboxList input[type="checkbox"]').prop('checked', false);
+      });
+      
+      // NOVO: Botão Cancelar apenas fecha o modal, mantendo o filtro atual.
+      $('#btnCancel').on('click', function() {
           $('#filterModalOverlay').hide();
       });
 
@@ -489,13 +494,9 @@ function inicializarTabela() {
           $('#filterModalOverlay').hide();
       });
 
-      // Modificação: Clicar fora do modal também limpa o filtro e exibe tudo.
+      // AJUSTADO: Clicar fora do modal (overlay) APENAS fecha. O filtro ativo (se houver) permanece.
       $('#filterModalOverlay').on('click touchstart', function(e) {
         if ($(e.target).is('#filterModalOverlay')) {
-            const columnIndex = $(this).data('column-index');
-            localStorage.removeItem(`agendamentoFiltroColuna${columnIndex}`);
-            dataTable.column(columnIndex).search('').draw();
-            atualizarBotaoFiltro();
             $(this).hide();
         }
       });
@@ -509,7 +510,7 @@ function inicializarTabela() {
         const coluna = $(this).data('col');
         const titulo = coluna === "CARGAS" ? "Detalhes da Carga" : "Senha de Agendamento";
         $('#modalCarga h2').text(titulo);
-        // NOVO: Adiciona quebra de linha para a coluna CARGAS
+        // Adiciona quebra de linha para a coluna CARGAS
         const displayContent = coluna === "CARGAS" ? conteudo.replace(/,/g, ',<br>') : conteudo; 
         $('#conteudoCarga').html(displayContent);
         $('#modalCarga').css('display','flex');
