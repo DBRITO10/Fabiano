@@ -154,6 +154,10 @@
         #btnApplyFilter {
             background-color: #28a745;
         }
+        /* Cor do Novo Botão Cancelar */
+        #btnCancel {
+            background-color: #6c757d; 
+        }
 
         /* Novo CSS para o modal de cargas */
         #cargaModal {
@@ -295,7 +299,7 @@
         <div id="modalButtons">
             <button id="btnSelectAll">Marcar Todos</button>
             <button id="btnSelectNone">Desmarcar Todos</button>
-            <button id="btnApplyFilter">Aplicar Filtro</button>
+            <button id="btnCancel">Cancelar</button> <button id="btnApplyFilter">Aplicar Filtro</button>
         </div>
     </div>
 </div>
@@ -556,8 +560,10 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     $(document).on('click', '.filter-select', function() {
         const columnIndex = $(this).closest('th').index();
         const columnName = colunasDesejadas[columnIndex];
-        const filteredData = dataTable.rows({search:'applied'}).data().toArray();
-        const uniqueValues = [...new Set(filteredData.map(row => row[columnIndex]))].sort();
+        
+        // Usar todos os dados brutos, não apenas os filtrados, para popular a lista de opções.
+        const allData = dataTable.rows().data().toArray();
+        const uniqueValues = [...new Set(allData.map(row => row[columnIndex]))].sort();
         
         const savedFilter = localStorage.getItem(`filtroColuna${columnIndex}`);
         const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
@@ -565,10 +571,12 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         let checkboxesHtml = '';
         uniqueValues.forEach(value => {
             if (value) {
-                const isChecked = savedValues.includes(value) ? 'checked' : '';
+                // Remove espaços em branco extras para correspondência correta
+                const trimmedValue = value.trim(); 
+                const isChecked = savedValues.includes(trimmedValue) ? 'checked' : '';
                 checkboxesHtml += `
                     <label>
-                        <input type="checkbox" value="${value}" ${isChecked}> ${value}
+                        <input type="checkbox" value="${trimmedValue}" ${isChecked}> ${trimmedValue}
                     </label>
                 `;
             }
@@ -579,17 +587,19 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         $('#filterModalOverlay').data('column-index', columnIndex).show();
     });
 
-    // Lógica para os botões do modal de filtro (corrigido)
+    // Lógica para os botões do modal de filtro (AJUSTADO CONFORME REQUISIÇÃO)
     $('#btnSelectAll').on('click', function() {
         $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
     });
 
-    // Modificação: Clicar em "Desmarcar Todos" também limpa o filtro e exibe tudo.
+    // AJUSTE: Apenas desmarca as checkboxes, NÃO limpa o filtro. O filtro só muda em 'Aplicar Filtro'.
     $('#btnSelectNone').on('click', function() {
-        const columnIndex = $('#filterModalOverlay').data('column-index');
-        localStorage.removeItem(`filtroColuna${columnIndex}`);
-        dataTable.column(columnIndex).search('').draw();
-        atualizarBotaoFiltro();
+        $('#modalCheckboxList input[type="checkbox"]').prop('checked', false); 
+        // O filtro ativo (se houver) permanece. O usuário deve clicar em 'Aplicar Filtro' para aplicar a desmarcação.
+    });
+    
+    // NOVO: Botão Cancelar apenas fecha o modal, mantendo o filtro atual.
+    $('#btnCancel').on('click', function() {
         $('#filterModalOverlay').hide();
     });
 
@@ -598,13 +608,10 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         $('#filterModalOverlay').hide();
     });
 
-    // Modificação: Clicar fora do modal também limpa o filtro e exibe tudo.
+    // AJUSTE: Clicar fora do modal (overlay) APENAS fecha. O filtro ativo (se houver) permanece.
     $('#filterModalOverlay').on('click touchstart', function(e) {
         if ($(e.target).is('#filterModalOverlay')) {
-            const columnIndex = $(this).data('column-index');
-            localStorage.removeItem(`filtroColuna${columnIndex}`);
-            dataTable.column(columnIndex).search('').draw();
-            atualizarBotaoFiltro();
+            // O filtro *existente* não é limpo, apenas o modal é escondido.
             $(this).hide();
         }
     });
@@ -691,6 +698,7 @@ function exportPDF(table){
     const data = table.rows({search:"applied"}).data().toArray();
     const centralIndex = colunasDesejadas.indexOf("CENTRAL"); 
     const statusIndex = colunasDesejadas.indexOf("STATUS");
+    const tipoDeProdutoIndex = colunasDesejadas.indexOf("TIPO DE PRODUTO"); // <--- NOVO
     
     // 1. Adicionar o Título do Relatório
     doc.setFontSize(16);
@@ -790,6 +798,24 @@ function exportPDF(table){
                     if (coresCentral[originalRowIndex] === 'red') {
                         cellData.cell.styles.textColor = [255, 0, 0]; // Vermelho
                         cellData.cell.styles.fontStyle = 'bold';
+                    }
+                }
+                
+                // Aplica a cor de fundo para a coluna TIPO DE PRODUTO <-- NOVO CÓDIGO
+                if (cellData.column.index === tipoDeProdutoIndex) {
+                    const cellValue = cellData.cell.text.join('').trim().toUpperCase();
+                    let color = '';
+                    if (['ARMARIO', 'COMODA', 'COZINHA', 'BERÇO', 'MULTIUSO', 'PAINEL', 'ROUPEIRO','ARMARIOS', 'MODULOS', 'MODULO'].includes(cellValue)) {
+                        color = '#FFFF00'; // Amarelo
+                    } else if (['CELULAR', 'NOTEBOOK', 'IMPRESSORA', 'TABLET','RELÓGIO'].includes(cellValue)) {
+                        color = '#00BFFF'; // Azul Céu Profundo
+                    } else if (cellValue === 'MESA') {
+                        color = '#4CAF50'; // Verde
+                    }
+                    if (color) {
+                        cellData.cell.styles.fillColor = hexToRgb(color);
+                        // Garante que o texto seja legível
+                        cellData.cell.styles.textColor = (color === '#FFFF00') ? [0, 0, 0] : [0, 0, 0]; 
                     }
                 }
             }
