@@ -359,7 +359,7 @@ function inicializarTabela() {
             color = '#FFFF00'; // Amarelo
           } else if (['CELULAR', 'NOTEBOOK', 'IMPRESSORA', 'RELOGIOS', 'ASPIRADOR', 'TABLET'].includes(cellValue)) {
             color = '#00BFFF'; // Azul
-          } else if (cellValue === 'MESA', 'MESA PLASTICA') {
+          } else if (cellValue === 'MESA') {
             color = '#4CAF50'; // Verde
           }
           if (color) {
@@ -393,7 +393,7 @@ function inicializarTabela() {
           if (savedFilter) {
             const savedValues = JSON.parse(savedFilter);
             if (savedValues.length > 0) {
-              // Usa ^ e $ para forçar a correspondência exata dos valores selecionados
+              // CORRIGIDO: Garante a correspondência exata do filtro (^ e $)
               const searchString = savedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
               column.search(searchString, true, false);
             }
@@ -423,7 +423,7 @@ function inicializarTabela() {
         
         localStorage.setItem(`agendamentoFiltroColuna${columnIndex}`, JSON.stringify(selectedValues));
         
-        // Usa ^ e $ para forçar a correspondência exata dos valores selecionados
+        // CORRIGIDO: Garante a correspondência exata do filtro (^ e $)
         const searchString = selectedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
         
         const column = dataTable.column(columnIndex);
@@ -443,7 +443,7 @@ function inicializarTabela() {
         
         let uniqueValues = [...new Set(allDataForColumn.map(row => row[columnName] || "" ))].filter(Boolean); 
         
-        // Ordenação específica para a coluna "DATA"
+        // NOVO: Ordenação específica para a coluna "DATA"
         if (columnName === "DATA"){
           uniqueValues.sort((a,b)=>{ 
             const toTime=v=>{ 
@@ -479,7 +479,7 @@ function inicializarTabela() {
           $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
       });
 
-      // AJUSTADO: Apenas desmarca os checkboxes. O filtro não é limpo imediatamente.
+      // CORRIGIDO: Apenas desmarca os checkboxes. O filtro ativo permanece.
       $('#btnSelectNone').on('click', function() {
           $('#modalCheckboxList input[type="checkbox"]').prop('checked', false);
       });
@@ -494,7 +494,7 @@ function inicializarTabela() {
           $('#filterModalOverlay').hide();
       });
 
-      // AJUSTADO: Clicar fora do modal (overlay) APENAS fecha. O filtro ativo (se houver) permanece.
+      // CORRIGIDO: Clicar fora do modal (overlay) APENAS fecha. O filtro ativo (se houver) permanece.
       $('#filterModalOverlay').on('click touchstart', function(e) {
         if ($(e.target).is('#filterModalOverlay')) {
             $(this).hide();
@@ -510,7 +510,7 @@ function inicializarTabela() {
         const coluna = $(this).data('col');
         const titulo = coluna === "CARGAS" ? "Detalhes da Carga" : "Senha de Agendamento";
         $('#modalCarga h2').text(titulo);
-        // Adiciona quebra de linha para a coluna CARGAS
+        // NOVO: Adiciona quebra de linha para a coluna CARGAS
         const displayContent = coluna === "CARGAS" ? conteudo.replace(/,/g, ',<br>') : conteudo; 
         $('#conteudoCarga').html(displayContent);
         $('#modalCarga').css('display','flex');
