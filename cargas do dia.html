@@ -286,7 +286,7 @@
         <tr class="headers"></tr>
         <tr class="filters"></tr>
     </thead>
-    <tbody></tbody>
+    <tbody></boby>
     <tfoot>
         <tr><th colspan="7" style="text-align:right; font-weight:bold;" id="totalCargas">Total de Cargas: 0</th></tr>
     </tfoot>
@@ -561,9 +561,11 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         const columnIndex = $(this).closest('th').index();
         const columnName = colunasDesejadas[columnIndex];
         
-        // Usar todos os dados brutos, não apenas os filtrados, para popular a lista de opções.
-        const allData = dataTable.rows().data().toArray();
-        const uniqueValues = [...new Set(allData.map(row => row[columnIndex]))].sort();
+        // *** INÍCIO DA MUDANÇA: USAR DADOS JÁ FILTRADOS ***
+        // Agora, coleta apenas os dados das linhas visíveis na tabela (após outros filtros)
+        const filteredData = dataTable.rows({search: 'applied'}).data().toArray();
+        const uniqueValues = [...new Set(filteredData.map(row => row[columnIndex]))].sort();
+        // *** FIM DA MUDANÇA ***
         
         const savedFilter = localStorage.getItem(`filtroColuna${columnIndex}`);
         const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
