@@ -155,6 +155,9 @@ thead th.tipo-produto { min-width: 200px !important; }
   overflow-y: auto;
   flex-grow: 1;
 }
+.modal-checkbox-list label {
+  margin: 5px 0;
+}
 .modal-title {
   font-size: 1.2em;
   font-weight: bold;
@@ -191,10 +194,20 @@ thead th.tipo-produto { min-width: 200px !important; }
 #btnApplyFilter {
   background-color: #28a745;
 }
-/* NOVO: Estilo para o botão Cancelar */
+/* Estilo para o botão Cancelar */
 #btnCancel {
     background-color: #6c757d; 
 }
+
+/* **NOVO CSS: Modal de Filtro Profissional (Sombreado)** */
+.disabled-option {
+    color: #a0a0a0; /* Cor cinza para o texto */
+    opacity: 0.6; /* Opacidade */
+}
+.disabled-option input[type="checkbox"] {
+    opacity: 0.6;
+}
+/* **FIM NOVO CSS** */
 
 /* Responsivo melhorado para botões e selects */
 @media (max-width: 768px) {
@@ -308,15 +321,37 @@ $.fn.dataTable.ext.type.order['date-br-pre'] = function(data) {
 };
 
 function carregarDados(url, callback) {
-  Papa.parse(url, { download:true, header:true, complete:function(results){
+  Papa.parse(url, { 
+    download:true, 
+    header:true, 
+    complete:function(results){
       const dadosFiltrados = results.data.filter(row => colunas.some(c => row[c] && row[c].trim() !== ""));
       allData = allData.concat(dadosFiltrados);
       callback();
-  }});
+    },
+    error: function(err, file, inputElem, reason) {
+        console.error("PapaParse Error:", err, reason);
+        // Exibe um alerta de erro caso a extração falhe
+        alert("Falha ao carregar dados da planilha. Verifique a URL e as permissões de compartilhamento.");
+        callback(); // Continua para inicializar a tabela mesmo com dados vazios
+    }
+  });
 }
 
 function inicializarTabela() {
-  if(allData.length===0) return;
+  if(allData.length===0) { 
+    // Se não houver dados, exibe um aviso na tabela
+    document.querySelector("#planilha tbody").innerHTML = '<tr><td colspan="' + colunas.length + '" style="text-align:center; padding: 20px;">Nenhum dado encontrado ou erro ao carregar a planilha.</td></tr>';
+    
+    // Configura apenas os cabeçalhos e botões de filtro sem inicializar o DataTable
+    const headerRow = document.querySelector("#planilha thead tr.headers");
+    const filterRow = document.querySelector("#planilha thead tr.filters");
+    colunas.forEach(col => {
+      headerRow.innerHTML += `<th>${col}</th>`;
+      filterRow.innerHTML += `<th><button class="filter-select" data-column-name="${col}" disabled>Filtrar / Limpar</button></th>`; // Desabilita botões
+    });
+    return;
+  }
   
   const headerRow = document.querySelector("#planilha thead tr.headers");
   const filterRow = document.querySelector("#planilha thead tr.filters");
@@ -331,10 +366,11 @@ function inicializarTabela() {
     columns: colunas.map(c => ({
       data: c,
       render: function(data, type, row, meta){
+        const displayData = data || "";
         if(c === "CARGAS" || c === "SENHA DE AGENDAMENTO"){
-          return `<span class="popup-cell" data-col="${c}" style="color:#000;cursor:pointer;" title="Clique para detalhes">${data}</span>`;
+          return `<span class="popup-cell" data-col="${c}" style="color:#000;cursor:pointer;" title="Clique para detalhes">${displayData}</span>`;
         }
-        return data;
+        return displayData;
       }
     })),
     deferRender: true,
@@ -353,7 +389,7 @@ function inicializarTabela() {
       { targets: 4, width: "150px" },
       { targets: 5, width: "220px", className: "tipo-produto",
         createdCell: function (td, cellData, rowData, row, col) {
-          const cellValue = cellData.trim().toUpperCase();
+          const cellValue = cellData ? cellData.trim().toUpperCase() : '';
           let color = '';
           if (['ARMARIO', 'COMODA', 'COZINHA', 'MULTIUSO', 'PAINEL', 'ROUPEIRO', 'BERÇO', 'ARMARIOS', 'MODULOS', 'MODULO'].includes(cellValue)) {
             color = '#FFFF00'; // Amarelo
@@ -393,7 +429,7 @@ function inicializarTabela() {
           if (savedFilter) {
             const savedValues = JSON.parse(savedFilter);
             if (savedValues.length > 0) {
-              // CORRIGIDO: Garante a correspondência exata do filtro (^ e $)
+              // Garante a correspondência exata do filtro (^ e $)
               const searchString = savedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
               column.search(searchString, true, false);
             }
@@ -423,7 +459,7 @@ function inicializarTabela() {
         
         localStorage.setItem(`agendamentoFiltroColuna${columnIndex}`, JSON.stringify(selectedValues));
         
-        // CORRIGIDO: Garante a correspondência exata do filtro (^ e $)
+        // Garante a correspondência exata do filtro (^ e $)
         const searchString = selectedValues.map(v => '^' + $.fn.dataTable.util.escapeRegex(v) + '$').join('|');
         
         const column = dataTable.column(columnIndex);
@@ -435,15 +471,22 @@ function inicializarTabela() {
         atualizarBotaoFiltro();
       }
       
-      // Lógica do Modal de Filtro
+      // **Lógica do Modal de Filtro (COM SOMBREADO/DESABILITAÇÃO)**
       $(document).on('click', '.filter-select', function() {
         const columnIndex = $(this).closest('th').index();
         const columnName = colunas[columnIndex];
-        const allDataForColumn = dataTable.rows().data().toArray(); // Usa todos os dados para popular as opções
         
+        // 1. Coletar TODOS os dados brutos (para a lista completa no modal)
+        const allDataForColumn = dataTable.rows().data().toArray();
         let uniqueValues = [...new Set(allDataForColumn.map(row => row[columnName] || "" ))].filter(Boolean); 
         
-        // NOVO: Ordenação específica para a coluna "DATA"
+        // 2. Coletar APENAS os dados filtrados (para saber quais opções são "válidas")
+        const filteredData = dataTable.rows({search: 'applied'}).data().toArray();
+        // Cria um Set para pesquisa rápida (apenas valores que existem nas linhas filtradas)
+        const filteredUniqueValues = new Set(filteredData.map(row => row[columnName] || "").filter(Boolean));
+
+
+        // Ordenação específica para a coluna "DATA"
         if (columnName === "DATA"){
           uniqueValues.sort((a,b)=>{ 
             const toTime=v=>{ 
@@ -461,9 +504,17 @@ function inicializarTabela() {
         let checkboxesHtml = '';
         uniqueValues.forEach(value => {
           const isChecked = savedValues.includes(value) ? 'checked' : '';
+          
+          // Lógica de Sombreado
+          const isAvailable = filteredUniqueValues.has(value); 
+          // Aplica a classe 'disabled-option' (sombreado) se NÃO estiver disponível E NÃO estiver marcado
+          const optionClass = (isChecked || isAvailable) ? '' : 'disabled-option';
+          // Desabilita o checkbox se NÃO estiver disponível E NÃO estiver marcado (se estiver marcado, permite desmarcar)
+          const disabledAttr = (isChecked || isAvailable) ? '' : 'disabled'; 
+          
           checkboxesHtml += `
-            <label>
-                <input type="checkbox" value="${value}" ${isChecked}> ${value}
+            <label class="${optionClass}">
+                <input type="checkbox" value="${value}" ${isChecked} ${disabledAttr}> ${value}
             </label>
           `;
         });
@@ -473,19 +524,20 @@ function inicializarTabela() {
         $('#filterModalOverlay').data('column-index', columnIndex).show();
       });
 
-      // Lógica dos botões do modal:
+      // **Lógica dos botões do modal atualizada:**
       
       $('#btnSelectAll').on('click', function() {
-          $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
+          // Marca apenas os que NÃO estão DISABLED
+          $('#modalCheckboxList input[type="checkbox"]:not(:disabled)').prop('checked', true);
       });
 
-      // CORRIGIDO: Apenas desmarca os checkboxes. O filtro ativo permanece.
       $('#btnSelectNone').on('click', function() {
+          // Desmarca todos
           $('#modalCheckboxList input[type="checkbox"]').prop('checked', false);
       });
       
-      // NOVO: Botão Cancelar apenas fecha o modal, mantendo o filtro atual.
       $('#btnCancel').on('click', function() {
+          // Apenas fecha, mantendo o filtro atual
           $('#filterModalOverlay').hide();
       });
 
@@ -494,7 +546,7 @@ function inicializarTabela() {
           $('#filterModalOverlay').hide();
       });
 
-      // CORRIGIDO: Clicar fora do modal (overlay) APENAS fecha. O filtro ativo (se houver) permanece.
+      // Clicar fora do modal (overlay) APENAS fecha.
       $('#filterModalOverlay').on('click touchstart', function(e) {
         if ($(e.target).is('#filterModalOverlay')) {
             $(this).hide();
@@ -510,7 +562,7 @@ function inicializarTabela() {
         const coluna = $(this).data('col');
         const titulo = coluna === "CARGAS" ? "Detalhes da Carga" : "Senha de Agendamento";
         $('#modalCarga h2').text(titulo);
-        // NOVO: Adiciona quebra de linha para a coluna CARGAS
+        // Adiciona quebra de linha para a coluna CARGAS
         const displayContent = coluna === "CARGAS" ? conteudo.replace(/,/g, ',<br>') : conteudo; 
         $('#conteudoCarga').html(displayContent);
         $('#modalCarga').css('display','flex');
@@ -521,7 +573,22 @@ function inicializarTabela() {
   });
 }
 
+// Sequência de carregamento de dados (mantida)
 carregarDados(urls[0], function(){ carregarDados(urls[1], inicializarTabela); });
+
+function hexToRgb(hex) {
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 4) {
+        r = parseInt(hex[1] + hex[1], 16);
+        g = parseInt(hex[2] + hex[2], 16);
+        b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+        r = parseInt(hex.substring(1, 3), 16);
+        g = parseInt(hex.substring(3, 5), 16);
+        b = parseInt(hex.substring(5, 7), 16);
+    }
+    return [r, g, b];
+}
 
 function exportarPDF(){
   const { jsPDF } = window.jspdf;
@@ -531,7 +598,8 @@ function exportarPDF(){
   const headers = colunas;
   const rows = dadosVisiveis.map(r => colunas.map(c => r[c] || ""));
   
-  // Define a largura das colunas e a quebra de linha apenas para o conteúdo das células
+  const tipoDeProdutoIndex = colunas.indexOf("TIPO DE PRODUTO");
+
   doc.autoTable({ 
     head: [headers], 
     body: rows, 
@@ -550,7 +618,8 @@ function exportarPDF(){
       fontSize: 9,
       minCellHeight: 15,
       cellWidth: 'auto',
-      overflow: 'visible'
+      overflow: 'visible',
+      fillColor: hexToRgb('#CC0000') // Cor do cabeçalho
     },
     bodyStyles: {
       overflow: 'linebreak',
@@ -563,6 +632,27 @@ function exportarPDF(){
       4: { cellWidth: 35 }, // FORNECEDOR
       5: { cellWidth: 50 }, // TIPO DE PRODUTO
       6: { cellWidth: 40 } // PRODUTO
+    },
+    didParseCell: function(cellData) {
+        if (cellData.section === 'body') {
+            // Aplica cor de fundo para TIPO DE PRODUTO no PDF
+            if (cellData.column.index === tipoDeProdutoIndex) {
+                const cellValue = cellData.cell.text.join('').trim().toUpperCase();
+                let color = '';
+                if (['ARMARIO', 'COMODA', 'COZINHA', 'MULTIUSO', 'PAINEL', 'ROUPEIRO', 'BERÇO', 'ARMARIOS', 'MODULOS', 'MODULO'].includes(cellValue)) {
+                    color = '#FFFF00'; // Amarelo
+                } else if (['CELULAR', 'NOTEBOOK', 'IMPRESSORA', 'RELOGIOS', 'ASPIRADOR', 'TABLET'].includes(cellValue)) {
+                    color = '#00BFFF'; // Azul
+                } else if (cellValue === 'MESA') {
+                    color = '#4CAF50'; // Verde
+                }
+                if (color) {
+                    cellData.cell.styles.fillColor = hexToRgb(color);
+                    // Garante que o texto seja legível (preto para amarelo, branco para azul/verde)
+                    cellData.cell.styles.textColor = (color === '#FFFF00') ? [0, 0, 0] : [0, 0, 0]; 
+                }
+            } 
+        }
     }
   });
   
