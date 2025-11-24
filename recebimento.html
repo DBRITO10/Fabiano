@@ -145,6 +145,18 @@
         background-color: #6c757d; 
     }
     
+    /* NOVO CSS PARA SOMBREADO/OPACIDADE (Implementação da ideia) */
+    .disabled-option {
+        color: #a0a0a0; /* Cor cinza para o texto */
+        opacity: 0.6; /* Opacidade */
+        pointer-events: none; /* Impede clique na label */
+    }
+    /* Aplica o estilo ao checkbox, mas permite que ele seja selecionado via 'Marcar Todos' */
+    .disabled-option input[type="checkbox"] {
+        opacity: 0.6;
+    }
+    /* NOVO CSS PARA SOMBREADO/OPACIDADE */
+
     /* Novo CSS para o modal de cargas */
     #cargaModal {
         display: none;
@@ -246,7 +258,7 @@
     <tr class="headers"></tr>
     <tr class="filters"></tr>
   </thead>
-  <tbody></tbody>
+  <tbody></tbody
   <tfoot>
     <tr><th colspan="9" style="text-align:right; font-weight:bold;" id="totalCargas">Total de Cargas: 0</th></tr>
   </tfoot>
@@ -406,18 +418,23 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
     shareMenu.style.display="none";
   });
 
-  // Lógica do Modal de Filtro
+  // Lógica do Modal de Filtro (Implementando Sombreado de Dados Não Disponíveis)
   $(document).on('click', '.filter-select', function() {
       const columnIndex = $(this).closest('th').index();
       const columnName = colunasDesejadas[columnIndex];
-      // Para o Recebimento, vamos usar todos os dados para popular as opções
+      
+      // 1. Coletar TODOS os dados brutos (para a lista completa no modal)
       const allData = dataTable.rows().data().toArray();
+      let allUniqueValues = [...new Set(allData.map(row => row[columnIndex]))].filter(Boolean);
       
-      let uniqueValues = [...new Set(allData.map(row => row[columnIndex]))].filter(Boolean);
-      
+      // 2. Coletar APENAS os dados filtrados (para saber quais opções são "válidas")
+      const filteredData = dataTable.rows({search: 'applied'}).data().toArray();
+      // Cria um Set para pesquisa rápida (apenas valores que existem nas linhas filtradas)
+      const filteredUniqueValues = new Set(filteredData.map(row => row[columnIndex]).filter(Boolean));
+
       // Ordenação específica para a coluna "DATA"
       if (columnName === "DATA"){
-          uniqueValues.sort((a,b)=>{ 
+          allUniqueValues.sort((a,b)=>{ 
               const toTime=v=>{ 
                   const parts = v.split("/").map(Number); 
                   if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime(); 
@@ -426,19 +443,31 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
               return toTime(a)-toTime(b); 
           });
       } else { 
-          uniqueValues.sort(); 
+          allUniqueValues.sort(); 
       }
       
       const savedFilter = localStorage.getItem(`filtroColuna${columnIndex}`);
       const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
       
       let checkboxesHtml = '';
-      uniqueValues.forEach(value => {
+      allUniqueValues.forEach(value => {
           if (value) {
-              const isChecked = savedValues.includes(value) ? 'checked' : '';
+              const trimmedValue = value.trim(); 
+              const isChecked = savedValues.includes(trimmedValue) ? 'checked' : '';
+              
+              // NOVO: Verifica se o valor existe nos dados atualmente filtrados.
+              const isAvailable = filteredUniqueValues.has(value); 
+              
+              // Aplica a classe 'disabled-option' (sombreado)
+              // Se estiver CHECADO ou DISPONÍVEL, não aplica a classe.
+              const optionClass = (isChecked || isAvailable) ? '' : 'disabled-option';
+              
+              // Desabilita o checkbox se NÃO estiver disponível E NÃO estiver marcado (se estiver marcado, permite desmarcar)
+              const disabledAttr = (isChecked || isAvailable) ? '' : 'disabled'; 
+              
               checkboxesHtml += `
-                  <label>
-                      <input type="checkbox" value="${value}" ${isChecked}> ${value}
+                  <label class="${optionClass}">
+                      <input type="checkbox" value="${trimmedValue}" ${isChecked} ${disabledAttr}> ${trimmedValue}
                   </label>
               `;
           }
@@ -451,7 +480,8 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 
   // Lógica dos Botões (Com o comportamento de "Cancelar" e "Desmarcar Todos" ajustado)
   $('#btnSelectAll').on('click', function() {
-      $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
+      // AJUSTADO: Agora, só marca os que não estão DISABLED (respeitando o sombreamento)
+      $('#modalCheckboxList input[type="checkbox"]:not(:disabled)').prop('checked', true);
   });
   
   // AJUSTADO: Apenas desmarca, não limpa o filtro. O filtro ativo permanece.
