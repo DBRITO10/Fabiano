@@ -155,9 +155,6 @@ thead th.tipo-produto { min-width: 200px !important; }
   overflow-y: auto;
   flex-grow: 1;
 }
-.modal-checkbox-list label {
-  margin: 5px 0;
-}
 .modal-title {
   font-size: 1.2em;
   font-weight: bold;
@@ -194,20 +191,20 @@ thead th.tipo-produto { min-width: 200px !important; }
 #btnApplyFilter {
   background-color: #28a745;
 }
-/* Estilo para o botão Cancelar */
+/* NOVO: Estilo para o botão Cancelar */
 #btnCancel {
     background-color: #6c757d; 
 }
 
-/* **NOVO CSS: Modal de Filtro Profissional (Sombreado)** */
+/* **CSS Modal de Filtro Profissional (Sombreado)** */
 .disabled-option {
-    color: #a0a0a0; /* Cor cinza para o texto */
-    opacity: 0.6; /* Opacidade */
+    color: #a0a0a0;
+    opacity: 0.6;
 }
 .disabled-option input[type="checkbox"] {
     opacity: 0.6;
 }
-/* **FIM NOVO CSS** */
+/* **FIM CSS** */
 
 /* Responsivo melhorado para botões e selects */
 @media (max-width: 768px) {
@@ -321,37 +318,15 @@ $.fn.dataTable.ext.type.order['date-br-pre'] = function(data) {
 };
 
 function carregarDados(url, callback) {
-  Papa.parse(url, { 
-    download:true, 
-    header:true, 
-    complete:function(results){
+  Papa.parse(url, { download:true, header:true, complete:function(results){
       const dadosFiltrados = results.data.filter(row => colunas.some(c => row[c] && row[c].trim() !== ""));
       allData = allData.concat(dadosFiltrados);
       callback();
-    },
-    error: function(err, file, inputElem, reason) {
-        console.error("PapaParse Error:", err, reason);
-        // Exibe um alerta de erro caso a extração falhe
-        alert("Falha ao carregar dados da planilha. Verifique a URL e as permissões de compartilhamento.");
-        callback(); // Continua para inicializar a tabela mesmo com dados vazios
-    }
-  });
+  }});
 }
 
 function inicializarTabela() {
-  if(allData.length===0) { 
-    // Se não houver dados, exibe um aviso na tabela
-    document.querySelector("#planilha tbody").innerHTML = '<tr><td colspan="' + colunas.length + '" style="text-align:center; padding: 20px;">Nenhum dado encontrado ou erro ao carregar a planilha.</td></tr>';
-    
-    // Configura apenas os cabeçalhos e botões de filtro sem inicializar o DataTable
-    const headerRow = document.querySelector("#planilha thead tr.headers");
-    const filterRow = document.querySelector("#planilha thead tr.filters");
-    colunas.forEach(col => {
-      headerRow.innerHTML += `<th>${col}</th>`;
-      filterRow.innerHTML += `<th><button class="filter-select" data-column-name="${col}" disabled>Filtrar / Limpar</button></th>`; // Desabilita botões
-    });
-    return;
-  }
+  if(allData.length===0) return;
   
   const headerRow = document.querySelector("#planilha thead tr.headers");
   const filterRow = document.querySelector("#planilha thead tr.filters");
@@ -524,7 +499,7 @@ function inicializarTabela() {
         $('#filterModalOverlay').data('column-index', columnIndex).show();
       });
 
-      // **Lógica dos botões do modal atualizada:**
+      // Lógica dos botões do modal:
       
       $('#btnSelectAll').on('click', function() {
           // Marca apenas os que NÃO estão DISABLED
@@ -532,12 +507,10 @@ function inicializarTabela() {
       });
 
       $('#btnSelectNone').on('click', function() {
-          // Desmarca todos
           $('#modalCheckboxList input[type="checkbox"]').prop('checked', false);
       });
       
       $('#btnCancel').on('click', function() {
-          // Apenas fecha, mantendo o filtro atual
           $('#filterModalOverlay').hide();
       });
 
@@ -546,7 +519,6 @@ function inicializarTabela() {
           $('#filterModalOverlay').hide();
       });
 
-      // Clicar fora do modal (overlay) APENAS fecha.
       $('#filterModalOverlay').on('click touchstart', function(e) {
         if ($(e.target).is('#filterModalOverlay')) {
             $(this).hide();
@@ -573,9 +545,12 @@ function inicializarTabela() {
   });
 }
 
-// Sequência de carregamento de dados (mantida)
 carregarDados(urls[0], function(){ carregarDados(urls[1], inicializarTabela); });
 
+
+// ************ FUNÇÕES PDF/EXCEL ATUALIZADAS ************
+
+// Função Auxiliar para Conversão de Cor (Necessário para o PDF)
 function hexToRgb(hex) {
     let r = 0, g = 0, b = 0;
     if (hex.length === 4) {
@@ -630,7 +605,7 @@ function exportarPDF(){
       2: { cellWidth: 30 }, // CENTRAL
       3: { cellWidth: 35 }, // CARGAS
       4: { cellWidth: 35 }, // FORNECEDOR
-      5: { cellWidth: 50 }, // TIPO DE PRODUTO
+      5: { cellWidth: 40 }, // TIPO DE PRODUTO (AJUSTADO de 50 para 40)
       6: { cellWidth: 40 } // PRODUTO
     },
     didParseCell: function(cellData) {
