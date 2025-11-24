@@ -159,6 +159,18 @@
             background-color: #6c757d; 
         }
 
+        /* NOVO CSS PARA SOMBREADO/OPACIDADE */
+        .disabled-option {
+            color: #a0a0a0; /* Cor cinza para o texto */
+            opacity: 0.6; /* Opacidade */
+            pointer-events: none; /* Impede clique na label */
+        }
+        /* Aplica o estilo ao checkbox, mas permite que ele seja selecionado via 'Marcar Todos' */
+        .disabled-option input[type="checkbox"] {
+            opacity: 0.6;
+        }
+        /* NOVO CSS PARA SOMBREADO/OPACIDADE */
+
         /* Novo CSS para o modal de cargas */
         #cargaModal {
             display: none;
@@ -561,22 +573,36 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
         const columnIndex = $(this).closest('th').index();
         const columnName = colunasDesejadas[columnIndex];
         
-        // Usar todos os dados brutos, não apenas os filtrados, para popular a lista de opções.
+        // 1. Coletar TODOS os dados brutos (para a lista completa no modal)
         const allData = dataTable.rows().data().toArray();
-        const uniqueValues = [...new Set(allData.map(row => row[columnIndex]))].sort();
+        const allUniqueValues = [...new Set(allData.map(row => row[columnIndex]))].sort();
         
+        // 2. Coletar APENAS os dados filtrados (para saber quais opções são "válidas")
+        const filteredData = dataTable.rows({search: 'applied'}).data().toArray();
+        const filteredUniqueValues = new Set(filteredData.map(row => row[columnIndex]));
+
         const savedFilter = localStorage.getItem(`filtroColuna${columnIndex}`);
         const savedValues = savedFilter ? JSON.parse(savedFilter) : [];
         
         let checkboxesHtml = '';
-        uniqueValues.forEach(value => {
+        allUniqueValues.forEach(value => {
             if (value) {
-                // Remove espaços em branco extras para correspondência correta
                 const trimmedValue = value.trim(); 
                 const isChecked = savedValues.includes(trimmedValue) ? 'checked' : '';
+                
+                // NOVO: Verifica se o valor existe nos dados atualmente filtrados.
+                const isAvailable = filteredUniqueValues.has(value); 
+                
+                // Aplica a classe 'disabled-option' (sombreado) e impede a interação.
+                const optionClass = isAvailable ? '' : 'disabled-option';
+                const disabledAttr = isAvailable ? '' : 'disabled'; // Desabilita o checkbox em si
+                
+                // Remove o atributo 'disabled' se já estiver marcado, para que o usuário possa desmarcar um filtro antigo.
+                const finalDisabledAttr = isChecked ? '' : disabledAttr;
+                
                 checkboxesHtml += `
-                    <label>
-                        <input type="checkbox" value="${trimmedValue}" ${isChecked}> ${trimmedValue}
+                    <label class="${optionClass}">
+                        <input type="checkbox" value="${trimmedValue}" ${isChecked} ${finalDisabledAttr}> ${trimmedValue}
                     </label>
                 `;
             }
@@ -589,7 +615,8 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 
     // Lógica para os botões do modal de filtro (AJUSTADO CONFORME REQUISIÇÃO)
     $('#btnSelectAll').on('click', function() {
-        $('#modalCheckboxList input[type="checkbox"]').prop('checked', true);
+        // Agora, só marca os que não estão DISABLED, respeitando o sombreamento
+        $('#modalCheckboxList input[type="checkbox"]:not(:disabled)').prop('checked', true); 
     });
 
     // AJUSTE: Apenas desmarca as checkboxes, NÃO limpa o filtro. O filtro só muda em 'Aplicar Filtro'.
@@ -631,6 +658,7 @@ Papa.parse(csvUrl, { download: true, header: true, complete: function (results) 
 
     function aplicarFiltroModal() {
         const columnIndex = $('#filterModalOverlay').data('column-index');
+        // Só pega os que estão marcados
         const selectedValues = $('#modalCheckboxList input:checked').map(function() {
             return this.value;
         }).get();
